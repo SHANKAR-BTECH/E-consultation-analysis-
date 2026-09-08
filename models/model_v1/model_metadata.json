@@ -1,0 +1,12 @@
+{
+  "model": "Multinomial Naive Bayes",
+  "vectorizer": "TF-IDF",
+  "classes": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "selection_rule": "Highest weighted F1-score; accuracy breaks ties.",
+  "test_size": 120,
+  "random_state": 42
+}

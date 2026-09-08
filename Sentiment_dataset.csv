@@ -1,0 +1,61 @@
+feedback,sentiment
+"The public transport service is excellent",positive
+"I am very happy with the new service",positive
+"The government service was very helpful",positive
+"The response from the department was quick",positive
+"I am satisfied with the support provided",positive
+"The online portal is easy to use",positive
+"The new policy is very beneficial",positive
+"The service quality has improved greatly",positive
+"The staff were friendly and helpful",positive
+"My issue was resolved quickly",positive
+"The process was smooth and convenient",positive
+"I appreciate the efforts taken by the department",positive
+"The new system works very well",positive
+"The service is reliable and efficient",positive
+"I am pleased with the improvement",positive
+"The department handled my complaint well",positive
+"The website is simple and useful",positive
+"The response was excellent",positive
+"This initiative is a great improvement",positive
+"I had a good experience with the service",positive
+"The service is terrible",negative
+"I am very disappointed with the service",negative
+"The government service was extremely slow",negative
+"My complaint was completely ignored",negative
+"The online portal does not work properly",negative
+"I am unhappy with the response",negative
+"The process is confusing and difficult",negative
+"The service quality is very poor",negative
+"The staff were unhelpful",negative
+"My issue has not been resolved",negative
+"The system is slow and unreliable",negative
+"I had a very bad experience",negative
+"The department failed to respond",negative
+"The website keeps showing errors",negative
+"I am not satisfied with the service",negative
+"The response took too long",negative
+"This service is useless",negative
+"The process is frustrating",negative
+"Nothing was done about my complaint",negative
+"The new system is disappointing",negative
+"The government announced a new policy",neutral
+"The service will be available next month",neutral
+"The department released a new notification",neutral
+"The new system was launched yesterday",neutral
+"The policy will be reviewed next year",neutral
+"The meeting was held on Monday",neutral
+"The application process starts tomorrow",neutral
+"The department published the announcement",neutral
+"The new rules were announced today",neutral
+"The service is available in selected areas",neutral
+"The government released a report",neutral
+"The portal was updated this week",neutral
+"The department is conducting a survey",neutral
+"The new policy is under review",neutral
+"The application deadline is next Friday",neutral
+"The notification was issued yesterday",neutral
+"The department will publish the results",neutral
+"The service is currently available",neutral
+"The new scheme was introduced this year",neutral
+"The department will announce further details",neutral

@@ -1,0 +1,69 @@
+================================================================================
+E-CONSULTATION SENTIMENT ANALYSIS: MODEL v1 (BASELINE) VS MODEL v2 (10K DATASET)
+================================================================================
+
+1. DATASET SPECIFICATIONS
+--------------------------------------------------------------------------------
+Dataset:             sentiment_dataset_10k.csv
+Total Valid Records: 11211
+Train Split:         7847 (70.0%)
+Validation Split:    1682 (15.0%)
+Test Split (Unseen): 1682 (15.0%)
+Random Seed:         42 (Stratified by sentiment class)
+Data Leakage Check:  0 overlapping texts between train, val, and test splits.
+
+Class Distribution:
+- Negative: 3884 (34.6%)
+- Neutral:  3534 (31.5%)
+- Positive: 3793 (33.8%)
+
+Civic Domains Covered (15 domains):
+Clean Water, Sanitation, Roads, Public Transport, Healthcare, Education,
+Housing, Electricity, Welfare Schemes, Public Safety, Accessibility,
+Municipal Services, Digital Government Services, Infrastructure, Community Development.
+
+
+2. ARCHITECTURE & HYPERPARAMETER TUNING
+--------------------------------------------------------------------------------
+Architecture: Strictly TF-IDF + Multinomial Naive Bayes (as requested).
+Optimal Configuration Selected:
+- N-gram Range: (1, 1)
+- Sublinear TF: True
+- Min DF:       1
+- Alpha:        1.0
+- Total TF-IDF Features: 1076
+
+
+3. TEST SET PERFORMANCE COMPARISON (HELD-OUT 15% UNSEEN SAMPLES)
+--------------------------------------------------------------------------------
+Metric               Model v1 (Old Baseline)    Model v2 (10k Trained)     Improvement
+--------------------------------------------------------------------------------
+Accuracy:            0.6445                     0.9988                     +0.3543
+Macro F1:            0.6304                     0.9988                     +0.3684
+Weighted F1:         0.6272                     0.9988                     +0.3716
+Macro Precision:     0.6799                     0.9989                     +0.3189
+Macro Recall:        0.6480                     0.9988                     +0.3508
+
+
+4. PER-CLASS METRICS (MODEL v2)
+--------------------------------------------------------------------------------
+Class       Precision    Recall       F1-Score     Test Support
+--------------------------------------------------------------------------------
+Negative:   0.9966       1.0000       0.9983       583
+Neutral:    1.0000       1.0000       1.0000       530
+Positive:   1.0000       0.9965       0.9982       569
+
+
+5. CONFUSION MATRIX (MODEL v2)
+--------------------------------------------------------------------------------
+Rows = True Class, Columns = Predicted Class [Negative, Neutral, Positive]
+Negative: [583, 0, 0]
+Neutral:  [0, 530, 0]
+Positive: [2, 0, 567]
+
+
+6. VERSIONING & RECOVERABILITY
+--------------------------------------------------------------------------------
+Baseline artifacts preserved at: models/model_v1/
+Version 2 artifacts saved at:    models/model_v2_10k/
+Training script:                 train_10k.py

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore public consultation feedback through sentiment, recurring phrases and original evidence.">
+  <title>{{ project_title }}</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to analysis</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="brand" aria-label="Consultation Analytics home">
+        <span class="brand-glyph" aria-hidden="true">◈</span>
+        <span><strong>Consultation Analytics</strong><small>Government Public Consultation Intelligence</small></span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#workspace" id="nav-analysis" aria-current="page">Analysis</a>
+        <a href="#about">About</a>
+        <a href="#help">Help</a>
+      </nav>
+      <span id="system-status" class="system-status" role="status"><i></i>Checking system</span>
+    </div>
+  </header>
+  <main class="container">
+    <noscript><p class="notice error">JavaScript is needed to submit responses and explore results. Please enable it and reload.</p></noscript>
+    <p id="system-error" class="notice error" role="alert" hidden></p>
+    <section id="workspace" aria-labelledby="workspace-title">
+      <div class="intro">
+        <div>
+          <p class="eyebrow">Public consultation analysis</p>
+          <h1 id="workspace-title">Understand what people<br>are <em>really saying.</em></h1>
+          <p class="intro-copy">Analyze public consultation responses to uncover sentiment,<br class="desktop-break"> recurring concerns, major topics and the issues that deserve attention.</p>
+        </div>
+        <aside class="intro-note"><span class="note-rule"></span><p>A clearer view of public feedback.<br>Grounded in the original responses.</p><a href="#about">Explore the methodology <span aria-hidden="true">↗</span></a></aside>
+      </div>
+      <div class="input-workspace">
+        <div class="input-tabs" role="tablist" aria-label="Response source">
+          <button id="tab-paste" role="tab" aria-selected="true" aria-controls="pane-paste">Paste responses</button>
+          <button id="tab-csv" role="tab" aria-selected="false" aria-controls="pane-csv" tabindex="-1">Upload CSV</button>
+          <button id="tab-url" role="tab" aria-selected="false" aria-controls="pane-url" tabindex="-1">Public URL <span class="soon">Coming soon</span></button>
+        </div>
+        <div id="pane-paste" role="tabpanel" aria-labelledby="tab-paste">
+          <div class="input-caption"><label for="paste-input">Your consultation responses</label><label class="split-control">Separate by <select id="separator"><option value="line">New line</option><option value="paragraph">Blank line</option></select></label></div>
+          <textarea id="paste-input" placeholder="Paste consultation responses here..." aria-describedby="paste-help counters" spellcheck="true"></textarea>
+          <div class="input-footer"><div><p id="counters" aria-live="polite"><strong id="response-count">0</strong> responses detected <span class="divider-dot">·</span> <span id="character-count">0</span> characters</p><p id="paste-help" class="small muted">One response per line. Empty lines are ignored.</p></div><div class="actions"><button id="clear-paste" class="button text-button">Clear</button><button id="analyze-paste" class="button primary">Analyze consultation <span aria-hidden="true">→</span></button></div></div>
+        </div>
+        <div id="pane-csv" role="tabpanel" aria-labelledby="tab-csv" hidden>
+          <div class="upload-area" id="drop-zone">
+            <span class="upload-symbol" aria-hidden="true">↑</span><h2>Bring your responses together.</h2><p>Choose a CSV, then tell us which columns to use.</p>
+            <label class="button secondary upload-label">Choose CSV file<input type="file" id="csv-file" accept=".csv,text/csv" aria-label="Choose CSV file"></label>
+            <p class="small muted">Or drop a file here. UTF-8 CSV · <span id="csv-limit"></span> maximum</p>
+          </div>
+          <div id="csv-selected" hidden><div class="file-summary"><div><strong id="file-name"></strong><p id="file-description" class="small muted"></p></div><button id="remove-file" class="button text-button">Remove file</button></div>
+            <div id="csv-mapping" hidden><p class="mapping-heading">Match your columns <span class="small muted">Only the response column is required.</span></p><div class="mapping-grid">
+              <label>Response text <span aria-hidden="true">*</span><select id="map-text" required></select></label>
+              <label>Date<select id="map-date"></select></label><label>Category / department<select id="map-category"></select></label>
+              <label>Response ID<select id="map-id"></select></label><label>Source<select id="map-source"></select></label>
+            </div><p class="small muted">Optional columns can be left unused. Day-first dates such as 03/04/2026 mean 3 April.</p>
+            <details class="metadata-options"><summary>Additional metadata columns</summary><div id="metadata-columns"></div></details>
+            <div class="csv-action"><button id="analyze-csv" class="button primary">Analyze consultation <span aria-hidden="true">→</span></button></div></div>
+          </div>
+        </div>
+        <div id="pane-url" class="url-pane" role="tabpanel" aria-labelledby="tab-url" hidden><span class="eyebrow">Coming soon</span><h2>Public feedback, directly from its source.</h2><p>Support for selected public consultation pages is planned.<br>For now, paste responses or upload a CSV. No URL is fetched.</p><label>Public consultation URL<input type="url" placeholder="https://…" disabled></label><button id="url-use-csv" class="button secondary">Upload a CSV instead <span aria-hidden="true">→</span></button></div>
+      </div>
+      <div class="samples"><span>Try an illustrative sample</span><button data-sample="transport">Public Transport</button><button data-sample="healthcare">Health Services</button><button data-sample="housing">Housing &amp; Infrastructure</button><button data-sample="single">Single Response</button></div>
+      <p id="sample-note" class="small muted" hidden></p>
+      <div id="empty-state" class="workspace-foot"><p>No consultation analyzed yet.</p><p>Paste responses or upload a CSV to begin.<span> English-language prototype · Original evidence retained</span></p></div>
+    </section>
+    <section id="processing" class="processing" aria-labelledby="processing-title" hidden>
+      <div class="activity-line" aria-hidden="true"></div><p class="eyebrow">Analysis in progress</p><h1 id="processing-title" tabindex="-1">Analyzing your consultation.</h1><p>Turning the submitted responses into a clearer picture.</p>
+      <p class="processing-description">Sentiment classification <span>→</span> Recurring phrases <span>→</span> Evidence &amp; findings</p>
+      <p class="small muted">Waiting for the analysis service. These describe the workflow, not live stage progress.</p>
+    </section>
+    <div id="action-error" class="notice error" role="alert" tabindex="-1" hidden><div><strong>We couldn’t analyze this dataset.</strong><p id="error-message"></p><ul id="error-details"></ul></div><button id="dismiss-error" class="button text-button" aria-label="Dismiss error">Dismiss</button></div>
+    <section id="results" aria-labelledby="results-title" hidden>
+      <div class="results-heading"><div><p class="eyebrow">Consultation analysis</p><h1 id="results-title" tabindex="-1"></h1><p id="results-meta" class="muted"></p></div><button id="edit-input" class="button secondary">Edit inputs <span aria-hidden="true">↗</span></button></div>
+      <div id="partial-notice" class="notice warning" hidden></div>
+      <nav class="section-nav" aria-label="Analysis sections"><a href="#overview">Overview</a><a href="#issues-section">Priority issues</a><a href="#topics-section">Topics</a><a href="#explorer">Responses</a><a href="#quality-section">Data quality</a></nav>
+      <div id="metrics" class="metrics" aria-label="Analysis metrics"></div>
+      <section id="overview" class="overview-grid">
+        <div class="findings"><p class="eyebrow">What stands out</p><h2>The findings, in context.</h2><p id="summary" class="summary-copy"></p><p class="small muted">Summary assembled from measured findings. Review the original responses before drawing conclusions.</p></div>
+        <div class="sentiment-section"><h2>Sentiment at a glance</h2><p class="small muted">Across all valid responses</p><div id="sentiment-chart"></div></div>
+      </section>
+      <section id="issues-section" class="report-section"><div class="section-heading"><div><p class="eyebrow">Recurring concerns</p><h2>Issues worth a closer look.</h2></div><p>Repeated phrases associated with negative feedback.<br>Priority is a transparent score, not a severity assessment.</p></div>
+        <div class="table-scroll"><table><caption class="sr-only">Priority issues and source evidence</caption><thead><tr><th>Issue</th><th class="numeric">Mentions</th><th class="numeric">Negative</th><th>Priority</th><th>Evidence</th></tr></thead><tbody id="issues-body"></tbody></table></div><p id="issues-empty" class="unavailable" hidden>No recurring phrases met the issue thresholds. This does not mean there are no concerns.</p>
+      </section>
+      <div class="topics-grid report-section"><section id="topics-section"><div class="section-heading"><div><p class="eyebrow">Patterns in the feedback</p><h2>Topics people return to.</h2></div></div><p class="small muted">Select a topic to explore its matching responses. Topics can overlap.</p><div class="table-scroll"><table><caption class="sr-only">Topics from submitted responses</caption><thead><tr><th>Topic</th><th class="numeric">Mentions</th><th class="numeric">Share</th><th>Sentiment counts</th></tr></thead><tbody id="topics-body"></tbody></table></div><p id="topics-empty" class="unavailable" hidden>No usable phrases were extracted from these responses.</p></section>
+        <section class="keywords-section"><p class="eyebrow">In their words</p><h2>Key phrases</h2><p class="small muted">Number of responses mentioning each phrase</p><ol id="keywords-list" class="ranked-list"></ol></section></div>
+      <section id="explorer" class="report-section"><div class="section-heading"><div><p class="eyebrow">The source behind the numbers</p><h2>Explore the responses.</h2></div><p>Search and filter the loaded responses.<br>The analysis above always describes the full dataset.</p></div>
+        <div class="explorer-tools"><label class="search-field"><span class="sr-only">Search responses</span><input type="search" id="search" placeholder="Search responses..."></label><label>Sentiment<select id="filter-sentiment"></select></label><label id="category-filter-wrap" hidden>Category<select id="filter-category"></select></label><label id="topic-filter-wrap" hidden>Topic<select id="filter-topic"></select></label><button id="reset-filters" class="button text-button">Reset filters</button></div>
+        <div id="context-filter" class="context-filter" hidden><span id="context-text"></span><button id="clear-context" class="button text-button">Remove issue filter</button></div>
+        <p id="explorer-count" class="small muted" aria-live="polite"></p>
+        <div class="table-scroll"><table class="feedback-table"><caption class="sr-only">Original feedback responses</caption><thead><tr><th>Feedback</th><th>Sentiment</th><th class="numeric">Confidence</th><th>Category</th><th>Date</th></tr></thead><tbody id="feedback-body"></tbody></table></div>
+        <p id="explorer-empty" class="unavailable" hidden>No responses match these filters. Try another search or reset the filters.</p>
+        <div class="pagination"><span id="page-info" class="small muted"></span><div><button id="previous-page" class="button secondary">Previous</button><span id="page-number"></span><button id="next-page" class="button secondary">Next</button></div></div>
+      </section>
+      <div class="breakdown-grid report-section"><section><p class="eyebrow">Over time</p><h2>When feedback arrived.</h2><div id="trends-content"></div></section><section><p class="eyebrow">Across categories</p><h2>Different groups. Different views.</h2><div id="categories-content"></div></section></div>
+      <section id="quality-section" class="report-section quality-section"><div><p class="eyebrow">Data quality</p><h2>Every response accounted for.</h2><p class="small muted">Rejected responses are excluded from analytical totals.</p></div><div><div id="quality-counts" class="quality-counts"></div><details id="quality-details"><summary>View exclusions and date warnings</summary><div id="quality-list"></div></details></div></section>
+    </section>
+    <section id="about" class="about-section">
+      <p class="eyebrow">A transparent approach</p><div class="about-layout"><h2>Useful insights.<br>Understandable methods.</h2><div><p>Sentiment is classified with TF-IDF and Multinomial Naive Bayes. Topics and candidate issues come from measurable phrase patterns—not semantic policy reasoning.</p>
+      <details><summary>How the analysis works</summary><div class="methodology">
+        <h3>From text to sentiment</h3><p>Light preprocessing normalizes text while preserving negation. The saved TF-IDF vectorizer represents words and two-word phrases; the saved Naive Bayes classifier supplies sentiment probabilities.</p>
+        <h3>Keywords, topics and evidence</h3><p>Actual one-to-three-word phrases are counted once per response. Common stopwords are excluded, similar overlapping labels are suppressed, and representative feedback is quoted unchanged.</p>
+        <h3>Issue priority</h3><p>A candidate issue needs at least two negative-associated mentions and a negative ratio of at least 50%. Priority combines response coverage (40%) and negative ratio (60%). It is a documented heuristic, not verified severity.</p>
+        <h3>Model evaluation</h3><p>Prototype Test Accuracy: {{ ('%.2f%%' | format(metadata.accuracy * 100)) if metadata.accuracy is defined else 'Unavailable' }}</p><p>{{ metadata.get('dataset_size', 'Unavailable') }} samples in the generated prototype dataset. This controlled evaluation does not establish accuracy on real consultation responses. Confidence is not calibrated real-world accuracy.</p>
+      </div></details></div></div>
+    </section>
+    <section id="help" class="help-section"><h2>A little help getting started.</h2><div class="help-grid"><div><h3>Pasting responses</h3><p>Choose new lines or blank lines as the separator. Check the detected count before submitting. English-language text is supported.</p></div><div><h3>Preparing a CSV</h3><p>Use UTF-8 encoding and a header row. Select the response column after inspection. Dates and categories are optional.</p></div><div><h3>Working within the limits</h3><p id="limits-help"></p><p>URL extraction is not yet available.</p></div></div></section>
+  </main>
+  <footer class="site-footer"><div class="container"><span>◈ Consultation Analytics</span><p>{{ project_title }}<br>Academic prototype · Government/public-policy e-consultation</p><a href="#workspace">Back to top ↑</a></div></footer>
+  <dialog id="issue-dialog" aria-labelledby="issue-title"><div class="dialog-top"><span class="eyebrow">Issue &amp; evidence</span><button id="close-issue" class="button secondary">Close</button></div><div id="issue-detail"></div></dialog>
+  <script id="app-config" type="application/json">{{ ui_limits | tojson }}</script>
+  <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

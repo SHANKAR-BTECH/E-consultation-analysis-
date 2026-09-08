@@ -1,0 +1,64 @@
+{
+  "model": "Multinomial Naive Bayes",
+  "model_version": "v2_10k",
+  "dataset_version": "sentiment_dataset_10k.csv",
+  "vectorizer": "TF-IDF",
+  "classes": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "dataset_size": 11211,
+  "train_size": 9529,
+  "validation_size": 1682,
+  "test_size": 1682,
+  "random_state": 42,
+  "tfidf_config": {
+    "ngram_range": [
+      1,
+      1
+    ],
+    "sublinear_tf": true,
+    "min_df": 1
+  },
+  "naive_bayes_config": {
+    "alpha": 1.0
+  },
+  "evaluation": {
+    "Accuracy": 0.9988109393579072,
+    "Precision": 0.9988150045224955,
+    "Recall": 0.9988109393579072,
+    "F1-score": 0.9988109106809672,
+    "macro_f1": 0.9988423692841982,
+    "per_class": {
+      "negative": {
+        "precision": 0.9965811965811966,
+        "recall": 1.0,
+        "f1": 0.9982876712328768,
+        "support": 583
+      },
+      "neutral": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 530
+      },
+      "positive": {
+        "precision": 1.0,
+        "recall": 0.9964850615114236,
+        "f1": 0.9982394366197183,
+        "support": 569
+      }
+    }
+  },
+  "baseline_comparison": {
+    "old_accuracy": 0.6444708680142688,
+    "old_macro_f1": 0.6304108390082082,
+    "old_weighted_f1": 0.6272158299369629,
+    "new_accuracy": 0.9988109393579072,
+    "new_macro_f1": 0.9988423692841982,
+    "new_weighted_f1": 0.9988109106809672,
+    "accuracy_improvement": 0.35434007134363843,
+    "macro_f1_improvement": 0.36843153027599007
+  }
+}

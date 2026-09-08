@@ -1,0 +1,4 @@
+feedback,predicted_sentiment,confidence
+The doctor was very helpful and solved my problem quickly.,positive,0.954370255168005
+I am very disappointed because my complaint was not resolved.,negative,0.8028352524001856
+The consultation department will introduce a new service next month.,neutral,0.8559551637845222

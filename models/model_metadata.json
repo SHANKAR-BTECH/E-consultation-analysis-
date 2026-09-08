@@ -1,0 +1,22 @@
+{
+  "model": "Multinomial Naive Bayes",
+  "model_version": "v2_10k",
+  "vectorizer": "TF-IDF",
+  "classes": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "selection_rule": "Multinomial Naive Bayes trained on 10k balanced civic dataset; comparison ranked by weighted F1 then accuracy.",
+  "comparison_winner": "Multinomial Naive Bayes",
+  "dataset_size": 11211,
+  "train_size": 9529,
+  "evaluation": {
+    "Accuracy": 0.9988109393579072,
+    "Precision": 0.9988150045224955,
+    "Recall": 0.9988109393579072,
+    "F1-score": 0.9988109106809672
+  },
+  "test_size": 1682,
+  "random_state": 42
+}
