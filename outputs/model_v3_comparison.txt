@@ -1,0 +1,61 @@
+================================================================================
+E-CONSULTATION SENTIMENT ANALYSIS: MODEL COMPARISON REPORT
+v1 (600 samples) vs v2 (10k templates) vs v3 (10k diverse)
+================================================================================
+
+1. DATASET SPECIFICATIONS (v3)
+----------------------------------------
+  Dataset:             sentiment_dataset_v3.csv
+  Type:                SYNTHETIC (programmatically generated)
+  Total Valid Records: 10200
+  Train:               8160 (80.0%)
+  Validation:          1020 (10.0%)
+  Test (unseen):       1020 (10.0%)
+  Random Seed:         42
+  Data Leakage:        0 overlaps
+  Sentence stems:      500+ unique structures
+  Near-dupes rejected: During generation (Jaccard > 0.80)
+  Domains:             15 civic/government domains
+
+  Class Distribution:
+    negative: 3400 (33.3%)
+    neutral: 3400 (33.3%)
+    positive: 3400 (33.3%)
+
+2. BEST HYPERPARAMETERS
+----------------------------------------
+  ngram_range:   (1, 1)
+  sublinear_tf:  True
+  min_df:        1
+  alpha:         1.0
+  TF-IDF features: 1311
+
+3. v3 METRICS ON OWN TEST SET
+----------------------------------------
+  Accuracy:          1.0000
+  Macro F1:          1.0000
+  Weighted F1:       1.0000
+
+4. COMPARISON ON REALISTIC EXTERNAL TEST SET (54 hand-written examples)
+----------------------------------------
+  Metric                 v1 (600)       v2 (10k)       v3 (10k div.) 
+  ----------------------------------------------------------------
+  accuracy               0.7222         0.8519         0.8889        
+  macro_f1               0.6940         0.8500         0.8898        
+  weighted_f1            0.6940         0.8500         0.8898        
+  macro_precision        0.7406         0.8615         0.9057        
+  macro_recall           0.7222         0.8519         0.8889        
+
+5. PROMOTION DECISION
+----------------------------------------
+  PROMOTED: v3
+  Reason: v3 Macro F1 on realistic test (0.8898) exceeds v2 (0.8500) without class degradation.
+
+6. ACADEMIC HONESTY NOTICE
+----------------------------------------
+  This dataset is SYNTHETIC. It was generated programmatically using
+  500+ unique sentence stems with domain vocabulary substitution.
+  It is NOT real government citizen data.
+  It is NOT sourced from any actual public consultation.
+  Reported metrics reflect performance on synthetic/hand-crafted test data.
+  Real-world deployment accuracy may differ.

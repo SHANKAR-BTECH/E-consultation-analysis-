@@ -1,13 +1,16 @@
 DATASET QUALITY REPORT
 ----------------------------------------
-Total Samples: 600
-Positive Samples: 200
-Negative Samples: 200
-Neutral Samples: 200
+Total Samples: 10200
+Positive Samples: 3400
+Negative Samples: 3400
+Neutral Samples: 3400
 Missing Values: 0
 Duplicate Rows: 0
 Duplicate Feedback: 0
 Valid Labels: Yes
-Average Feedback Length: 130.45
-Minimum Feedback Length: 74
-Maximum Feedback Length: 193
+Average Feedback Length: 106.07
+Minimum Feedback Length: 26
+Maximum Feedback Length: 404
+Dataset Type: Synthetic government/public-consultation dataset
+Sentence Stems: 500+ diverse templates across 15 public consultation domains
+Near-Duplicate Filtering: Jaccard similarity threshold 0.80 applied

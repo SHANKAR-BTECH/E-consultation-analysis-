@@ -1,0 +1,96 @@
+{
+  "v1_600": {
+    "model_label": "Model v1 (600 samples)",
+    "accuracy": 0.7222,
+    "macro_precision": 0.7406,
+    "macro_recall": 0.7222,
+    "macro_f1": 0.694,
+    "weighted_precision": 0.7406,
+    "weighted_recall": 0.7222,
+    "weighted_f1": 0.694,
+    "per_class": {
+      "negative": {
+        "precision": 0.75,
+        "recall": 0.3333,
+        "f1": 0.4615,
+        "support": 18
+      },
+      "neutral": {
+        "precision": 0.8421,
+        "recall": 0.8889,
+        "f1": 0.8649,
+        "support": 18
+      },
+      "positive": {
+        "precision": 0.6296,
+        "recall": 0.9444,
+        "f1": 0.7556,
+        "support": 18
+      }
+    },
+    "confusion_matrix": [
+      [
+        6,
+        3,
+        9
+      ],
+      [
+        1,
+        16,
+        1
+      ],
+      [
+        1,
+        0,
+        17
+      ]
+    ]
+  },
+  "v2_10k": {
+    "model_label": "Model v2 (10k templates)",
+    "accuracy": 0.8519,
+    "macro_precision": 0.8615,
+    "macro_recall": 0.8519,
+    "macro_f1": 0.85,
+    "weighted_precision": 0.8615,
+    "weighted_recall": 0.8519,
+    "weighted_f1": 0.85,
+    "per_class": {
+      "negative": {
+        "precision": 0.8571,
+        "recall": 0.6667,
+        "f1": 0.75,
+        "support": 18
+      },
+      "neutral": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 18
+      },
+      "positive": {
+        "precision": 0.7273,
+        "recall": 0.8889,
+        "f1": 0.8,
+        "support": 18
+      }
+    },
+    "confusion_matrix": [
+      [
+        12,
+        0,
+        6
+      ],
+      [
+        0,
+        18,
+        0
+      ],
+      [
+        2,
+        0,
+        16
+      ]
+    ]
+  }
+}

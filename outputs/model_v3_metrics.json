@@ -1,0 +1,322 @@
+{
+  "model": "Multinomial Naive Bayes",
+  "model_version": "v3",
+  "dataset_version": "sentiment_dataset_v3.csv",
+  "dataset_type": "synthetic (programmatically generated with 500+ unique sentence stems)",
+  "vectorizer": "TF-IDF",
+  "classes": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "dataset_size": 10200,
+  "train_size": 9180,
+  "validation_size": 1020,
+  "test_size": 1020,
+  "random_state": 42,
+  "tfidf_config": {
+    "ngram_range": [
+      1,
+      1
+    ],
+    "sublinear_tf": true,
+    "min_df": 1
+  },
+  "naive_bayes_config": {
+    "alpha": 1.0
+  },
+  "own_test_set_metrics": {
+    "accuracy": 1.0,
+    "macro_precision": 1.0,
+    "macro_recall": 1.0,
+    "macro_f1": 1.0,
+    "weighted_precision": 1.0,
+    "weighted_recall": 1.0,
+    "weighted_f1": 1.0,
+    "per_class": {
+      "negative": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 340
+      },
+      "neutral": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 340
+      },
+      "positive": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 340
+      }
+    },
+    "confusion_matrix": [
+      [
+        340,
+        0,
+        0
+      ],
+      [
+        0,
+        340,
+        0
+      ],
+      [
+        0,
+        0,
+        340
+      ]
+    ]
+  },
+  "realistic_test_set_metrics": {
+    "accuracy": 0.8889,
+    "macro_precision": 0.9057,
+    "macro_recall": 0.8889,
+    "macro_f1": 0.8898,
+    "weighted_precision": 0.9057,
+    "weighted_recall": 0.8889,
+    "weighted_f1": 0.8898,
+    "per_class": {
+      "negative": {
+        "precision": 1.0,
+        "recall": 0.7778,
+        "f1": 0.875,
+        "support": 18
+      },
+      "neutral": {
+        "precision": 0.9444,
+        "recall": 0.9444,
+        "f1": 0.9444,
+        "support": 18
+      },
+      "positive": {
+        "precision": 0.7727,
+        "recall": 0.9444,
+        "f1": 0.85,
+        "support": 18
+      }
+    },
+    "confusion_matrix": [
+      [
+        14,
+        0,
+        4
+      ],
+      [
+        0,
+        17,
+        1
+      ],
+      [
+        0,
+        1,
+        17
+      ]
+    ]
+  },
+  "baseline_comparison_on_realistic": {
+    "v1_accuracy": 0.7222,
+    "v1_macro_f1": 0.694,
+    "v2_accuracy": 0.8519,
+    "v2_macro_f1": 0.85,
+    "v3_accuracy": 0.8889,
+    "v3_macro_f1": 0.8898
+  },
+  "experiment_log": [
+    {
+      "experiment": 1,
+      "config": {
+        "ngram_range": [
+          1,
+          1
+        ],
+        "sublinear_tf": true,
+        "min_df": 1,
+        "alpha": 1.0
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 1311
+    },
+    {
+      "experiment": 2,
+      "config": {
+        "ngram_range": [
+          1,
+          1
+        ],
+        "sublinear_tf": true,
+        "min_df": 2,
+        "alpha": 1.0
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 1310
+    },
+    {
+      "experiment": 3,
+      "config": {
+        "ngram_range": [
+          1,
+          1
+        ],
+        "sublinear_tf": true,
+        "min_df": 1,
+        "alpha": 0.5
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 1311
+    },
+    {
+      "experiment": 4,
+      "config": {
+        "ngram_range": [
+          1,
+          1
+        ],
+        "sublinear_tf": true,
+        "min_df": 2,
+        "alpha": 0.5
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 1310
+    },
+    {
+      "experiment": 5,
+      "config": {
+        "ngram_range": [
+          1,
+          2
+        ],
+        "sublinear_tf": true,
+        "min_df": 1,
+        "alpha": 1.0
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 10290
+    },
+    {
+      "experiment": 6,
+      "config": {
+        "ngram_range": [
+          1,
+          2
+        ],
+        "sublinear_tf": true,
+        "min_df": 2,
+        "alpha": 1.0
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 6828
+    },
+    {
+      "experiment": 7,
+      "config": {
+        "ngram_range": [
+          1,
+          2
+        ],
+        "sublinear_tf": true,
+        "min_df": 1,
+        "alpha": 0.5
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 10290
+    },
+    {
+      "experiment": 8,
+      "config": {
+        "ngram_range": [
+          1,
+          2
+        ],
+        "sublinear_tf": true,
+        "min_df": 2,
+        "alpha": 0.5
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 6828
+    },
+    {
+      "experiment": 9,
+      "config": {
+        "ngram_range": [
+          1,
+          2
+        ],
+        "sublinear_tf": true,
+        "min_df": 3,
+        "alpha": 0.5
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 5508
+    },
+    {
+      "experiment": 10,
+      "config": {
+        "ngram_range": [
+          1,
+          2
+        ],
+        "sublinear_tf": true,
+        "min_df": 1,
+        "alpha": 0.2
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 10290
+    },
+    {
+      "experiment": 11,
+      "config": {
+        "ngram_range": [
+          1,
+          2
+        ],
+        "sublinear_tf": true,
+        "min_df": 2,
+        "alpha": 0.2
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 6828
+    },
+    {
+      "experiment": 12,
+      "config": {
+        "ngram_range": [
+          1,
+          2
+        ],
+        "sublinear_tf": false,
+        "min_df": 2,
+        "alpha": 1.0
+      },
+      "val_accuracy": 1.0,
+      "val_macro_f1": 1.0,
+      "val_weighted_f1": 1.0,
+      "n_features": 6828
+    }
+  ]
+}
