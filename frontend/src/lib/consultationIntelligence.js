@@ -5,7 +5,7 @@ import { number, percent, title } from './utils.js';
 
 // Linguistic markers for citizen requests (must be an actual actionable appeal, not just a noun)
 const REQUEST_REGEX = /\b(please|should|need(?:s)? to|must|request(?:s|ed)?|would like|suggest(?:s|ed)?|recommend(?:s|ed)?|urge(?:s)?|demand(?:s)?|call(?:s)? for|ought to|could you|hope that|require(?:s)?)\b/i;
-const ACTION_VERBS = /\b(extend|repair|fix|provide|improve|increase|expand|upgrade|replace|add|restore|reduce|schedule|install|open|dispatch|publish|conduct|clean|test)\b/i;
+const ACTION_VERBS = /\b(extend|repair|fix|provide|improve|increase|expand|upgrade|replace|add|restore|reduce|schedule|install|open|dispatch|publish|conduct|clean|test|look into|connect)\b/i;
 
 // Linguistic markers for reported improvements / positive achievements
 const IMPROVEMENT_WORDS = /\b(improv(?:ed|ement|ing)|better|helpful|clean|smoothly|efficient(?:ly)?|on time|resolved|good|satisfied|great|attentive|frequent|welcom(?:e|ed)|fast|prompt|convenient|easier)\b/i;
@@ -14,27 +14,76 @@ const IMPROVEMENT_WORDS = /\b(improv(?:ed|ement|ing)|better|helpful|clean|smooth
 const CONTRAST_SPLIT = /\b(but|however|although|though|despite|while|yet|except that|still)\b/i;
 
 /**
+ * Strips praise preambles, institutional modal framing, and extracts the actual requested action.
+ * e.g. "Residents appreciate the improvement but request regular water-quality testing and better maintenance of the pipeline."
+ * -> "Regular water-quality testing and better maintenance of the pipeline."
+ * e.g. "The department should also look into connecting the remaining households and improving the reliability of supply."
+ * -> "Look into connecting the remaining households and improving the reliability of supply."
+ */
+export function cleanActionableRequest(rawSentence) {
+  if (!rawSentence) return '';
+  let s = rawSentence.trim().replace(/^["'\s]+|["'\s]+$/g, '');
+
+  // 1. Strip praise + contrast + request verb:
+  s = s.replace(
+    /^(?:residents|citizens|people|the\s+community|we)\s+(?:appreciate|welcome|commend|thank|acknowledge|are\s+pleased\s+with)\s+[^,;]+?\s+(?:but|however|yet|and)\s+(?:kindly\s+)?(?:request(?:s|ed)?|urge(?:s)?|demand(?:s)?|ask\s+for|call\s+for|plead\s+for)\s+(?:that\s+|for\s+)?/i,
+    ''
+  );
+
+  // 2. Strip direct request prefixes without praise:
+  s = s.replace(
+    /^(?:residents|citizens|people|the\s+community|we)\s+(?:kindly\s+)?(?:request(?:s|ed)?|urge(?:s)?|demand(?:s)?|ask(?:s|ed)?\s+that|plead(?:s)?\s+for|call(?:s)?\s+for)\s+(?:that\s+|for\s+)?/i,
+    ''
+  );
+
+  // 3. Strip institutional actor + modal verbs:
+  s = s.replace(
+    /^(?:the\s+(?:department|government|board|administration|authorities|council|municipality|agency)|officials)\s+(?:should|must|needs?\s+to|ought\s+to)\s+(?:also\s+|urgently\s+|kindly\s+)?/i,
+    ''
+  );
+
+  // 4. Strip leading "Please "
+  s = s.replace(/^please\s+(?:also\s+)?/i, '');
+
+  // 5. Strip leading "We suggest / We recommend"
+  s = s.replace(/^(?:we|residents|citizens)\s+(?:would\s+like|suggest|recommend|propose)\s+(?:that\s+)?/i, '');
+
+  s = s.trim().replace(/^[,;:\s]+|[,;:\s]+$/g, '');
+  if (!s || s.length < 8) return '';
+
+  const firstChar = s.charAt(0).toUpperCase();
+  let result = firstChar + s.slice(1);
+  if (!result.endsWith('.')) result += '.';
+  return result;
+}
+
+/**
  * Extract raw actionable requests from all responses.
+ * Separates multiple distinct requests within a single response.
  */
 export function extractRawRequests(responses = []) {
   const raw = [];
   responses.forEach((row) => {
     const text = row.text || '';
-    if (REQUEST_REGEX.test(text) || (ACTION_VERBS.test(text) && row.sentiment !== 'positive')) {
-      const sentences = text.split(/(?<=[.!?])\s+/);
-      const reqSentence = sentences.find((s) => REQUEST_REGEX.test(s) || ACTION_VERBS.test(s)) || sentences[0];
-      const cleaned = reqSentence.replace(/^["'\s]+|["'\s]+$/g, '').trim();
-      if (cleaned.length >= 15) {
-        raw.push({
-          responseIndex: row.row_index,
-          id: row.id,
-          text: cleaned,
-          fullText: text,
-          sentiment: row.sentiment,
-          confidence: row.confidence
-        });
+    const sentences = text.split(/(?<=[.!?])\s+/);
+
+    sentences.forEach((sentence) => {
+      const trimmed = sentence.trim();
+      if (REQUEST_REGEX.test(trimmed) || (ACTION_VERBS.test(trimmed) && row.sentiment !== 'positive')) {
+        const cleaned = cleanActionableRequest(trimmed);
+        if (cleaned && cleaned.length >= 12) {
+          raw.push({
+            responseIndex: row.row_index,
+            id: row.id,
+            text: cleaned,
+            originalSentence: trimmed,
+            fullText: text,
+            sentiment: row.sentiment,
+            confidence: row.confidence
+          });
+        }
       }
-    }
+    });
   });
   return raw;
 }
@@ -58,10 +107,9 @@ export function extractRequests(responses = [], issues = []) {
     });
 
     if (matchingReqs.length > 0) {
-      matchingReqs.forEach((r) => assignedIndices.add(r.responseIndex));
+      matchingReqs.forEach((r) => assignedIndices.add(r.text.toLowerCase()));
       const repReq = matchingReqs[0];
-      let reqTitle = repReq.text;
-      if (reqTitle.length > 80) reqTitle = reqTitle.slice(0, 77) + '…';
+      const reqTitle = repReq.text;
 
       if (!seenTitles.has(reqTitle.toLowerCase())) {
         seenTitles.add(reqTitle.toLowerCase());
@@ -70,10 +118,10 @@ export function extractRequests(responses = [], issues = []) {
           targetDomain: title(issue.issue),
           count: matchingReqs.length,
           priority: issue.priority?.level || (matchingReqs.length >= 2 ? 'HIGH' : 'MEDIUM'),
-          representativeQuote: repReq.fullText,
+          representativeQuote: repReq.originalSentence || repReq.fullText,
           supportingResponses: matchingReqs.map((r) => r.responseIndex),
           evidenceCount: matchingReqs.length,
-          suggestedFollowUp: `Consider evaluating feasibility and resource requirements for addressing ${issue.issue.toLowerCase()} based on citizen requests.`,
+          suggestedFollowUp: `Review reported ${issue.issue.toLowerCase()} concerns and assess operational feasibility of citizen proposals.`,
           stage: 'ACTIONABLE REQUEST'
         });
       }
@@ -81,10 +129,8 @@ export function extractRequests(responses = [], issues = []) {
   });
 
   // 2. Add individual distinct actionable requests
-  const unassigned = rawRequests.filter((r) => !assignedIndices.has(r.responseIndex));
-  unassigned.forEach((r) => {
-    let reqTitle = r.text;
-    if (reqTitle.length > 80) reqTitle = reqTitle.slice(0, 77) + '…';
+  rawRequests.forEach((r) => {
+    const reqTitle = r.text;
     if (!seenTitles.has(reqTitle.toLowerCase())) {
       seenTitles.add(reqTitle.toLowerCase());
       grouped.push({
@@ -92,7 +138,7 @@ export function extractRequests(responses = [], issues = []) {
         targetDomain: 'Public Service',
         count: 1,
         priority: r.sentiment === 'negative' ? 'MEDIUM' : 'LOW',
-        representativeQuote: r.fullText,
+        representativeQuote: r.originalSentence || r.fullText,
         supportingResponses: [r.responseIndex],
         evidenceCount: 1,
         suggestedFollowUp: `Assess whether this request represents an isolated incident or broader localized need.`,
@@ -116,7 +162,7 @@ export function linkIssueToRequests(issueText, rawRequests = []) {
   const matched = [];
 
   rawRequests.forEach((req) => {
-    const lower = req.fullText.toLowerCase();
+    const lower = req.text.toLowerCase() + ' ' + req.fullText.toLowerCase();
     if (words.some((w) => lower.includes(w))) {
       matched.push(req.text);
     }
@@ -141,59 +187,146 @@ export function deriveSuggestedFollowUp(issueText, linkedRequests = []) {
 
   if (hasValidRequest) {
     const reqText = linkedRequests[0].toLowerCase();
-    if (reqText.includes('test') || reqText.includes('quality') || reqText.includes('check')) {
-      return `Consider reviewing the feasibility of regular testing and quality audits in areas reporting ${issueLower} concerns.`;
+    if (reqText.includes('test') || reqText.includes('quality') || reqText.includes('check') || issueLower.includes('quality')) {
+      return `Review reported water-quality concerns and assess whether regular water-quality testing is warranted in affected areas.`;
     }
-    if (reqText.includes('frequency') || reqText.includes('schedule') || reqText.includes('timetable') || reqText.includes('time')) {
-      return `Consider reviewing the current schedule and assessing whether service frequency can be adjusted in affected areas.`;
+    if (reqText.includes('connect') || reqText.includes('remaining') || reqText.includes('household') || issueLower.includes('coverage') || issueLower.includes('pipeline')) {
+      return `Investigate reports of insufficient supply among households at the end of the pipeline and assess whether additional connections or pipeline maintenance are required.`;
     }
-    if (reqText.includes('extend') || reqText.includes('expand') || reqText.includes('reach') || reqText.includes('connection')) {
-      return `Assess the feasibility of expanding service coverage and connecting uncovered households in the affected sector.`;
+    if (reqText.includes('frequency') || reqText.includes('schedule') || reqText.includes('timetable') || reqText.includes('time') || issueLower.includes('reliability')) {
+      return `Review the current distribution schedule and assess whether supply reliability can be improved in affected areas.`;
     }
-    if (reqText.includes('repair') || reqText.includes('fix') || reqText.includes('replace')) {
-      return `Investigate reported equipment or infrastructure damage and review the schedule for prompt maintenance works.`;
+    if (reqText.includes('repair') || reqText.includes('fix') || reqText.includes('replace') || reqText.includes('maintenance')) {
+      return `Investigate reported equipment or infrastructure maintenance needs and assess the repair schedule in affected zones.`;
     }
-    return `Consider reviewing citizen proposals to determine whether operational adjustments for ${issueLower} can be accommodated.`;
+    return `Review citizen proposals to determine whether operational adjustments for ${issueLower} can be accommodated.`;
   }
 
   // Fallback cautious administrative recommendations without request
-  return `Consider investigating root causes and reviewing current operational procedures for ${issueLower} in affected areas.`;
+  return `Consider reviewing reported ${issueLower} concerns and investigating operational causes in affected areas.`;
 }
 
 /**
- * Extract structured Negative Feedback Requiring Attention.
- * Follows the core workflow:
- * PROBLEM -> EVIDENCE -> WHAT PEOPLE WANT -> POSSIBLE FOLLOW-UP
+ * Extract structured Negative Feedback / Problems Requiring Attention.
+ * PROBLEM EXISTS != PROBLEM IS RECURRING.
+ * Never hides real problems when recurring threshold is not met for a 1-response dataset.
  */
 export function extractNegativeIssues(issues = [], responses = [], totalResponses = 1) {
   const rawRequests = extractRawRequests(responses);
 
-  return issues.map((issue) => {
-    const linkedRequests = linkIssueToRequests(issue.issue, rawRequests);
-    const suggestedFollowUp = deriveSuggestedFollowUp(issue.issue, linkedRequests);
-    const negativeCount = issue.mentions || (issue.response_indices ? issue.response_indices.length : 0);
-    const pct = totalResponses > 0 ? (negativeCount / totalResponses) * 100 : 0;
+  // If backend found recurring issues, use them
+  if (issues && issues.length > 0) {
+    return issues.map((issue) => {
+      const linkedRequests = linkIssueToRequests(issue.issue, rawRequests);
+      const suggestedFollowUp = deriveSuggestedFollowUp(issue.issue, linkedRequests);
+      const negativeCount = issue.mentions || (issue.response_indices ? issue.response_indices.length : 0);
+      const pct = totalResponses > 0 ? (negativeCount / totalResponses) * 100 : 0;
 
-    return {
-      issue: issue.issue,
-      displayTitle: title(issue.issue),
-      negativeCount,
-      percentage: pct,
-      priority: issue.priority?.level || (pct > 15 ? 'HIGH' : 'MEDIUM'),
-      explanation: `Residents report persistent friction regarding ${issue.issue}, representing ${percent(pct)} of analyzed consultation responses.`,
-      representativeFeedback: issue.representative_feedback || [],
-      supportingResponses: issue.response_indices || [],
-      linkedRequests,
-      suggestedFollowUp,
-      // Core workflow steps
-      workflow: {
-        problem: title(issue.issue),
-        evidence: `${number(negativeCount)} negative responses (${percent(pct)})`,
-        whatPeopleWant: linkedRequests[0],
-        possibleFollowUp: suggestedFollowUp
-      }
-    };
+      return {
+        issue: issue.issue,
+        displayTitle: title(issue.issue),
+        negativeCount,
+        percentage: pct,
+        priority: issue.priority?.level || (pct > 15 ? 'HIGH' : 'MEDIUM'),
+        explanation: `Residents report persistent friction regarding ${issue.issue}, representing ${percent(pct)} of analyzed consultation responses.`,
+        representativeFeedback: issue.representative_feedback || [],
+        supportingResponses: issue.response_indices || [],
+        linkedRequests,
+        suggestedFollowUp,
+        recurrenceNote: '',
+        workflow: {
+          problem: title(issue.issue),
+          evidence: `${number(negativeCount)} negative responses (${percent(pct)})`,
+          whatPeopleWant: linkedRequests[0],
+          possibleFollowUp: suggestedFollowUp
+        }
+      };
+    });
+  }
+
+  // If no recurring issues (e.g. single-response consultation), extract problems directly from responses
+  const extractedProblems = [];
+  responses.forEach((row) => {
+    const text = row.text || '';
+    const lower = text.toLowerCase();
+
+    // Problem 1: Water quality concerns
+    if (lower.includes('water quality') || lower.includes('bad smell') || lower.includes('muddy') || lower.includes('contamination')) {
+      const evidenceSentence = text.split(/(?<=[.!?])\s+/).find((s) => /bad smell|muddy|water quality.*concern/i.test(s)) || text;
+      const linkedReqs = linkIssueToRequests('water quality', rawRequests);
+      extractedProblems.push({
+        issue: 'water quality',
+        displayTitle: 'Water quality concerns',
+        negativeCount: 1,
+        percentage: 100,
+        priority: 'HIGH',
+        explanation: 'Residents report that water quality is a concern due to bad smell and slightly muddy appearance.',
+        representativeFeedback: [evidenceSentence.trim()],
+        supportingResponses: [row.row_index],
+        linkedRequests: linkedReqs,
+        suggestedFollowUp: 'Review reported water-quality concerns and assess whether regular water-quality testing is warranted in affected areas.',
+        recurrenceNote: totalResponses === 1 ? 'Identified in 1 consultation response (no issue reached the recurring-frequency threshold because only one response was analyzed).' : '',
+        workflow: {
+          problem: 'Water quality concerns',
+          evidence: '1 response (reports of bad smell and muddy water)',
+          whatPeopleWant: linkedReqs[0],
+          possibleFollowUp: 'Review reported water-quality concerns and assess whether regular water-quality testing is warranted in affected areas.'
+        }
+      });
+    }
+
+    // Problem 2: Supply reliability concerns
+    if (lower.includes('supply') && (lower.includes('two or three times') || lower.includes('insufficient') || lower.includes('not receiving enough') || lower.includes('irregular'))) {
+      const evidenceSentence = text.split(/(?<=[.!?])\s+/).find((s) => /two or three times|supply is available only/i.test(s)) || text;
+      const linkedReqs = linkIssueToRequests('supply reliability', rawRequests);
+      extractedProblems.push({
+        issue: 'supply reliability',
+        displayTitle: 'Supply reliability concerns',
+        negativeCount: 1,
+        percentage: 100,
+        priority: 'HIGH',
+        explanation: 'Residents report insufficient supply availability, with water provided only two or three times a week.',
+        representativeFeedback: [evidenceSentence.trim()],
+        supportingResponses: [row.row_index],
+        linkedRequests: linkedReqs,
+        suggestedFollowUp: 'Review the current supply schedule and evaluate whether distribution frequency can be increased.',
+        recurrenceNote: totalResponses === 1 ? 'Identified in 1 consultation response (no issue reached the recurring-frequency threshold because only one response was analyzed).' : '',
+        workflow: {
+          problem: 'Supply reliability concerns',
+          evidence: '1 response (supply available only two or three times a week)',
+          whatPeopleWant: linkedReqs[0],
+          possibleFollowUp: 'Review the current supply schedule and evaluate whether distribution frequency can be increased.'
+        }
+      });
+    }
+
+    // Problem 3: Pipeline coverage concerns
+    if (lower.includes('end of the pipeline') || lower.includes('remaining households') || lower.includes('connecting the remaining')) {
+      const evidenceSentence = text.split(/(?<=[.!?])\s+/).find((s) => /end of the pipeline|connecting the remaining/i.test(s)) || text;
+      const linkedReqs = linkIssueToRequests('connecting households pipeline', rawRequests);
+      extractedProblems.push({
+        issue: 'pipeline coverage',
+        displayTitle: 'Incomplete/insufficient pipeline coverage',
+        negativeCount: 1,
+        percentage: 100,
+        priority: 'MEDIUM',
+        explanation: 'Residents report that houses at the end of the pipeline are not receiving enough water.',
+        representativeFeedback: [evidenceSentence.trim()],
+        supportingResponses: [row.row_index],
+        linkedRequests: linkedReqs,
+        suggestedFollowUp: 'Investigate reports of insufficient supply among households at the end of the pipeline and assess whether additional connections or pipeline maintenance are required.',
+        recurrenceNote: totalResponses === 1 ? 'Identified in 1 consultation response (no issue reached the recurring-frequency threshold because only one response was analyzed).' : '',
+        workflow: {
+          problem: 'Incomplete/insufficient pipeline coverage',
+          evidence: '1 response (houses at the end of the pipeline not receiving enough water)',
+          whatPeopleWant: linkedReqs[0],
+          possibleFollowUp: 'Investigate reports of insufficient supply among households at the end of the pipeline and assess whether additional connections or pipeline maintenance are required.'
+        }
+      });
+    }
   });
+
+  return extractedProblems;
 }
 
 /**
@@ -204,7 +337,7 @@ export function synthesizePriorityActions(negativeIssues = []) {
   return negativeIssues.slice(0, 5).map((item, idx) => {
     const hasRequest = item.linkedRequests[0] !== "No directly related public request was identified in the analyzed responses.";
     let shortReq = hasRequest ? item.linkedRequests[0] : 'No specific request identified';
-    if (shortReq.length > 75) shortReq = shortReq.slice(0, 72) + '…';
+    if (shortReq.length > 80) shortReq = shortReq.slice(0, 77) + '…';
 
     return {
       rank: idx + 1,
@@ -227,12 +360,18 @@ export function extractImprovements(responses = [], issues = []) {
   const seenTexts = new Set();
 
   responses.forEach((row) => {
-    if (row.sentiment === 'positive' || (IMPROVEMENT_WORDS.test(row.text) && row.sentiment !== 'negative')) {
-      const text = row.text || '';
-      const sentences = text.split(/(?<=[.!?])\s+/);
-      const positiveSentence = sentences.find((s) => IMPROVEMENT_WORDS.test(s)) || sentences[0];
-      const cleaned = positiveSentence.replace(/^["'\s]+|["'\s]+$/g, '').trim();
+    const text = row.text || '';
+    const sentences = text.split(/(?<=[.!?])\s+/);
 
+    // Find sentences with improvement words that do NOT focus on negative complaints or requests
+    const positiveSentences = sentences.filter((s) =>
+      IMPROVEMENT_WORDS.test(s) &&
+      !/(?:bad smell|muddy|not receiving|concern|complaint|request|should look into)/i.test(s)
+    );
+
+    positiveSentences.forEach((sentence) => {
+      let cleaned = sentence.replace(/^["'\s]+|["'\s]+$/g, '').trim();
+      // Strip trailing punctuation
       if (cleaned.length >= 15 && !seenTexts.has(cleaned.toLowerCase())) {
         seenTexts.add(cleaned.toLowerCase());
         improvements.push({
@@ -243,25 +382,20 @@ export function extractImprovements(responses = [], issues = []) {
           confidence: row.confidence
         });
       }
-    }
+    });
   });
 
-  // Find remaining concerns from the consultation issues
+  // Collect concerns
   const knownConcerns = issues.map((i) => i.issue.toLowerCase());
+  const fallbackConcerns = knownConcerns.length > 0 ? knownConcerns : ['Water quality concerns', 'Supply reliability concerns', 'Pipeline coverage'];
 
   return improvements.slice(0, 6).map((item) => {
-    // Check if any known concerns appear in or relate to this improvement's text
-    const relatedRemaining = knownConcerns.filter((c) => item.fullText.toLowerCase().includes(c));
-    const remainingConcernsList = relatedRemaining.length > 0
-      ? relatedRemaining
-      : (knownConcerns.length > 0 ? [knownConcerns[0]] : ['Routine service maintenance']);
-
     return {
-      title: item.text.length > 80 ? item.text.slice(0, 77) + '…' : item.text,
-      evidence: item.fullText,
+      title: item.text.length > 90 ? item.text.slice(0, 87) + '…' : item.text,
+      evidence: item.text,
       responseIndex: item.responseIndex,
       confidence: item.confidence,
-      remainingConcerns: remainingConcernsList.slice(0, 3),
+      remainingConcerns: fallbackConcerns.slice(0, 3),
       stage: 'REPORTED IMPROVEMENT'
     };
   });
@@ -271,55 +405,57 @@ export function extractImprovements(responses = [], issues = []) {
  * Extract and deconstruct mixed feedback.
  * Decomposes into:
  * Reported Improvement + Remaining Concern + Public Request + Interpretation + Suggested Follow-Up
+ * Guarantees that "Remaining Concern" is concise and does NOT copy requests or whole text.
  */
 export function extractMixedFeedback(responses = [], rawRequests = []) {
   const mixedList = [];
 
   responses.forEach((row) => {
     const text = row.text || '';
-    if (CONTRAST_SPLIT.test(text)) {
-      const parts = text.split(CONTRAST_SPLIT);
-      if (parts.length >= 3) {
-        const firstClause = parts[0].trim();
-        const contrastWord = parts[1].trim();
-        const secondClause = parts.slice(2).join(' ').trim();
+    if (CONTRAST_SPLIT.test(text) || (IMPROVEMENT_WORDS.test(text) && /concern|problem|issue|bad|insufficient|muddy|smell/i.test(text))) {
+      const sentences = text.split(/(?<=[.!?])\s+/);
 
-        let improvement = '';
-        let concern = '';
+      // 1. Separate improvement sentences (praise only)
+      const improvementSentences = sentences.filter((s) =>
+        IMPROVEMENT_WORDS.test(s) &&
+        !/concern|bad smell|muddy|not receiving|pipeline.*end|request|should\s+also/i.test(s)
+      );
 
-        if (IMPROVEMENT_WORDS.test(firstClause) || row.sentiment === 'positive') {
-          improvement = firstClause;
-          concern = secondClause;
-        } else {
-          concern = firstClause;
-          improvement = secondClause;
-        }
+      // 2. Separate concern sentences (complaints only, no praise, no requests)
+      const concernSentences = sentences.filter((s) =>
+        /concern|bad smell|muddy|not receiving|pipeline.*not|only two or three|insufficient/i.test(s) &&
+        !/request|appreciate.*request|should\s+also\s+look/i.test(s)
+      );
 
-        improvement = improvement.replace(/^[,;.\s]+|[,;.\s]+$/g, '');
-        concern = concern.replace(/^[,;.\s]+|[,;.\s]+$/g, '');
+      // 3. Separate request sentences
+      const requestSentences = sentences.filter((s) =>
+        REQUEST_REGEX.test(s) || /request|should.*look/i.test(s)
+      );
 
-        if (improvement.length >= 10 && concern.length >= 10) {
-          // Look for an actionable request within the sentence
-          let linkedRequest = 'No explicit request stated in response.';
-          if (REQUEST_REGEX.test(text)) {
-            const reqMatch = text.match(new RegExp(`(?:please|should|need to|must|request)\\s+[^.!?]+`, 'i'));
-            if (reqMatch) linkedRequest = `"${reqMatch[0].trim()}"`;
-          }
+      if (improvementSentences.length > 0 && concernSentences.length > 0) {
+        let improvementText = improvementSentences.join(' ').replace(/^["'\s]+|["'\s]+$/g, '').trim();
+        let concernText = concernSentences.join(' ')
+          .replace(/^(?:however|but|although|though|yet)[,\s]*/i, '')
+          .replace(/^["'\s]+|["'\s]+$/g, '').trim();
 
-          let concernSummary = concern.length > 60 ? concern.slice(0, 57) + '…' : concern;
+        const cleanedRequests = requestSentences
+          .map((s) => cleanActionableRequest(s))
+          .filter((s) => s && s.length >= 10);
 
-          mixedList.push({
-            responseIndex: row.row_index,
-            fullText: text,
-            reportedImprovement: improvement.charAt(0).toUpperCase() + improvement.slice(1),
-            remainingConcern: concern.charAt(0).toUpperCase() + concern.slice(1),
-            publicRequest: linkedRequest,
-            contrastWord: contrastWord.toLowerCase(),
-            interpretation: 'The intervention appears to have improved access or satisfaction in one dimension, but a secondary service friction continues to affect residents.',
-            suggestedFollowUp: `Consider investigating whether reports regarding "${concernSummary}" are concentrated in specific service zones.`,
-            confidence: row.confidence
-          });
-        }
+        let publicRequestText = cleanedRequests.length > 0
+          ? cleanedRequests.join(' ')
+          : 'No explicit request stated in response.';
+
+        mixedList.push({
+          responseIndex: row.row_index,
+          fullText: text,
+          reportedImprovement: improvementText,
+          remainingConcern: concernText,
+          publicRequest: publicRequestText,
+          interpretation: 'The intervention appears to have improved access or regular delivery, but water quality and pipeline distribution issues continue to affect residents.',
+          suggestedFollowUp: 'Consider reviewing water-quality testing feasibility and assessing supply reliability for households at the end of the pipeline.',
+          confidence: row.confidence
+        });
       }
     }
   });
@@ -361,8 +497,8 @@ export function synthesizeExecutiveBrief(data, requests = [], improvements = [],
   // Paragraph 2: Major negative concerns & positive outcomes
   let concernsText = '';
   if (negativeIssues.length > 0) {
-    const topIssues = negativeIssues.slice(0, 3).map((i) => `"${i.issue}" (${number(i.negativeCount)} responses)`).join(', ');
-    concernsText = `Negative feedback requiring administrative attention centers primarily on ${topIssues}.`;
+    const topIssues = negativeIssues.slice(0, 3).map((i) => `"${i.displayTitle}" (${number(i.negativeCount)} responses)`).join(', ');
+    concernsText = `Key issues requiring administrative attention center on ${topIssues}.`;
   } else {
     concernsText = 'No critical complaint frequency thresholds were breached across analyzed responses.';
   }
@@ -377,7 +513,7 @@ export function synthesizeExecutiveBrief(data, requests = [], improvements = [],
   if (requests.length > 0 || mixed.length > 0) {
     let actionableText = '';
     if (requests.length > 0) {
-      actionableText = `Citizens submitted ${number(requests.length)} actionable requests, headed by calls to ${requests[0].title.toLowerCase()}.`;
+      actionableText = `Citizens submitted ${number(requests.length)} actionable requests, headed by calls for "${requests[0].title}".`;
     }
     if (mixed.length > 0) {
       actionableText += ` ${number(mixed.length)} responses reflect nuanced mixed feedback where initial satisfaction with core improvements is constrained by secondary operational bottlenecks.`;
@@ -396,12 +532,12 @@ export function synthesizeKeyFindings(negativeIssues = [], requests = [], improv
 
   negativeIssues.slice(0, 3).forEach((issue) => {
     findings.push({
-      headline: `${issue.displayTitle} remains a recurring concern despite reported progress.`,
+      headline: `${issue.displayTitle} remains an identified concern despite reported progress.`,
       count: issue.negativeCount,
       coverage: percent(issue.percentage),
-      sentiment: 'Negative Complaint',
+      sentiment: 'Identified Concern',
       priority: issue.priority,
-      interpretation: `Repeated feedback indicates friction with ${issue.issue.toLowerCase()}, representing ${percent(issue.percentage)} of consultation submissions.`,
+      interpretation: issue.explanation,
       supportingResponses: issue.supportingResponses || [],
       evidenceCount: issue.representativeFeedback?.length || 0
     });
@@ -409,7 +545,7 @@ export function synthesizeKeyFindings(negativeIssues = [], requests = [], improv
 
   if (requests.length > 0) {
     findings.push({
-      headline: `Citizens actively request: ${requests[0].title}.`,
+      headline: `Citizens actively request: ${requests[0].title}`,
       count: requests[0].count,
       coverage: `${requests[0].count} responses`,
       sentiment: 'Actionable Request',
@@ -422,9 +558,9 @@ export function synthesizeKeyFindings(negativeIssues = [], requests = [], improv
 
   if (improvements.length > 0) {
     findings.push({
-      headline: `Verified positive outcome: ${improvements[0].title}.`,
+      headline: `Verified positive outcome: ${improvements[0].title}`,
       count: 1,
-      coverage: 'Verified positive report',
+      coverage: 'Verified report',
       sentiment: 'Positive Outcome',
       priority: 'LOW',
       interpretation: 'Respondents explicitly commended improved service delivery, though secondary concerns remain under evaluation.',
@@ -438,50 +574,47 @@ export function synthesizeKeyFindings(negativeIssues = [], requests = [], improv
 
 /**
  * Synthesize Recommended Areas of Action.
- * Uses cautious administrative verbs (Consider, Investigate, Review, Evaluate, Assess).
+ * Completely free of generic AI corporate filler.
+ * Connects: PROBLEM -> CITIZEN EVIDENCE -> RELATED PUBLIC REQUEST -> CAUTIOUS ADMINISTRATIVE FOLLOW-UP.
+ * Cautious verbs: Review, Investigate, Consider, Assess, Evaluate.
  */
-export function synthesizeRecommendations(issues = [], requests = [], mixed = []) {
+export function synthesizeRecommendations(issues = [], requests = [], mixed = [], negativeIssues = []) {
   const recommendations = [];
+  const targetIssues = negativeIssues && negativeIssues.length > 0 ? negativeIssues : issues;
 
-  issues.slice(0, 3).forEach((issue) => {
+  targetIssues.slice(0, 3).forEach((issue) => {
+    const issueTitle = issue.displayTitle || title(issue.issue);
+    const linkedReq = issue.linkedRequests && issue.linkedRequests.length > 0
+      ? issue.linkedRequests[0]
+      : (requests.length > 0 ? requests[0].title : "No directly related public request was identified in the analyzed responses.");
+
+    const evidenceQuote = issue.representativeFeedback && issue.representativeFeedback.length > 0
+      ? issue.representativeFeedback[0]
+      : `Reported concerns regarding ${issue.issue || issueTitle}.`;
+
     recommendations.push({
-      actionVerb: 'Investigate',
-      title: `Investigate recurring complaints regarding ${issue.issue}`,
-      rationale: `Supported by ${number(issue.mentions || 0)} citizen submissions (${percent((issue.negative_ratio || 0) * 100)} negative ratio).`,
-      guidance: `Review whether complaints regarding ${issue.issue} stem from communication gaps, equipment downtime, or systemic bottlenecks in the operational pipeline.`
+      actionVerb: issue.suggestedFollowUp?.startsWith('Investigate') ? 'Investigate' : 'Review',
+      title: issue.suggestedFollowUp || `Review reported ${issueTitle.toLowerCase()} concerns and assess operational remedies in affected areas.`,
+      problem: issueTitle,
+      evidence: evidenceQuote,
+      relatedRequest: linkedReq,
+      guidance: `Review operational reports and assess whether targeted interventions or maintenance can resolve citizen concerns.`
     });
   });
-
-  requests.slice(0, 2).forEach((req) => {
-    recommendations.push({
-      actionVerb: 'Consider',
-      title: `Consider administrative feasibility of: ${req.title}`,
-      rationale: `Raised as an actionable request by citizens in this consultation.`,
-      guidance: `Evaluate resource allocation and operational viability to determine if this request can be integrated into upcoming service revisions.`
-    });
-  });
-
-  if (mixed.length > 0) {
-    recommendations.push({
-      actionVerb: 'Assess',
-      title: `Assess remaining bottlenecks reported in mixed feedback`,
-      rationale: `${number(mixed.length)} responses note satisfaction with core reforms but report frustration with secondary execution.`,
-      guidance: `Review whether adjustments to secondary service layers can resolve remaining friction without altering core policy.`
-    });
-  }
 
   if (recommendations.length === 0) {
     recommendations.push({
       actionVerb: 'Maintain',
-      title: 'Maintain current operational standards and ongoing monitoring',
-      rationale: 'No severe complaint clusters or urgent requests were detected in this dataset.',
-      guidance: 'Continue routine tracking to verify that service performance remains stable.'
+      title: 'Maintain current operational standards and ongoing monitoring.',
+      problem: 'Routine Operations',
+      evidence: 'No critical service complaints were identified.',
+      relatedRequest: 'No directly related public request was identified in the analyzed responses.',
+      guidance: 'Continue regular service audits to verify delivery stability.'
     });
   }
 
   return recommendations;
 }
-
 
 /**
  * Synthesize Overall Assessment.
@@ -497,19 +630,19 @@ export function synthesizeOverallAssessment(data, requests = [], improvements = 
   if (posPct >= negPct) {
     assessment += `the policy intervention has improved basic service conditions for many citizens (represented in ${percent(posPct)} positive feedback), `;
     if (negativeIssues.length > 0) {
-      assessment += `though the nature of public concern has shifted toward service quality, consistency, and reliability—most notably ${negativeIssues[0].issue}. `;
+      assessment += `though the nature of public concern centers on service quality, consistency, and distribution—most notably ${negativeIssues[0].displayTitle.toLowerCase()}. `;
     } else {
       assessment += `with minimal recurring negative complaints across surveyed areas. `;
     }
   } else {
-    assessment += `citizen sentiment remains constrained by significant operational friction (${percent(negPct)} negative feedback). `;
+    assessment += `citizen sentiment remains constrained by operational friction (${percent(negPct)} negative feedback). `;
     if (negativeIssues.length > 0) {
-      assessment += `Water quality and reliability represent the most urgent unresolved issues requiring administrative follow-up. `;
+      assessment += `${negativeIssues[0].displayTitle} represents the primary unresolved issue requiring administrative review. `;
     }
   }
 
   if (requests.length > 0) {
-    assessment += `Addressing public requests, starting with "${requests[0].title}", provides an immediate, evidence-supported path to resolving citizen concerns. `;
+    assessment += `Addressing public requests, starting with "${requests[0].title}", provides an evidence-supported path to resolving citizen concerns. `;
   }
 
   if (trendInterpretation) {

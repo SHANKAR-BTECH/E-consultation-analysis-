@@ -70,6 +70,12 @@ export default function NegativeFeedbackSection({
                 </div>
               </div>
 
+              {item.recurrenceNote && (
+                <div className="recurrence-note-strip">
+                  <span className="muted small">ℹ {item.recurrenceNote}</span>
+                </div>
+              )}
+
               <p className="negative-issue-explanation">{item.explanation}</p>
 
               {/* Core 4-Stage Decision Workflow */}
