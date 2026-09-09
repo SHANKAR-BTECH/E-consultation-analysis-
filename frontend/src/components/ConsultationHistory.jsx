@@ -43,7 +43,7 @@ export function HistoryPanel({ list, detail, saved, selectedId, onSelect, onSele
         disabled={isRefreshing}
         aria-busy={isRefreshing}
       >
-        {isRefreshing ? 'Refreshing…' : 'Refresh History'}
+        {isRefreshing ? 'Refreshing...' : 'Refresh History'}
       </button>
     </div>
     {!selectedId ? <>

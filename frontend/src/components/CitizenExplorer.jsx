@@ -102,7 +102,7 @@ export default function CitizenExplorer({
       {/* Secondary Search & Dropdown Filter Bar */}
       <div className="explorer-filter-bar">
         <div className="filter-group search-field">
-          <label htmlFor="search-input" className="filter-label">Search words or phrases:</label>
+          <label htmlFor="search-input" className="filter-label">Search words or phrases</label>
           <input
             type="search"
             id="search-input"
@@ -114,7 +114,7 @@ export default function CitizenExplorer({
         </div>
 
         <div className="filter-group select-group">
-          <label htmlFor="filter-sentiment" className="filter-label">Sentiment:</label>
+          <label htmlFor="filter-sentiment" className="filter-label">Sentiment</label>
           <select
             id="filter-sentiment"
             className="select-filter"
@@ -132,7 +132,7 @@ export default function CitizenExplorer({
 
         {topicsAvailable && (
           <div className="filter-group select-group">
-            <label htmlFor="filter-topic" className="filter-label">Topic:</label>
+            <label htmlFor="filter-topic" className="filter-label">Topic</label>
             <select
               id="filter-topic"
               className="select-filter"
@@ -151,7 +151,7 @@ export default function CitizenExplorer({
 
         {categoriesAvailable && (
           <div className="filter-group select-group">
-            <label htmlFor="filter-category" className="filter-label">Category:</label>
+            <label htmlFor="filter-category" className="filter-label">Category</label>
             <select
               id="filter-category"
               className="select-filter"
