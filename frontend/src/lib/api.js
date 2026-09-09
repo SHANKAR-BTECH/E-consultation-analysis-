@@ -96,6 +96,14 @@ export async function checkHealth() {
   return await request('/health');
 }
 
+export async function analyzeUrl(url) {
+  return validateAnalysis(await request('/analyze-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  }));
+}
+
 export async function analyzeResponses(responses) {
   // responses is an array of raw strings
   const payload = {

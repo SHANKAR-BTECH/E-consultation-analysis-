@@ -28,6 +28,9 @@ export default function AnalysisWorkspace({
   onMappingChange,
   onToggleMetadata,
   onSubmitCsv,
+  url,
+  onUrlChange,
+  onSubmitUrl,
   // Samples
   onSelectSample,
   sampleNote,
@@ -71,7 +74,8 @@ export default function AnalysisWorkspace({
         )}
 
         {mode === 'url' && (
-          <UrlPane onSwitchToCsv={() => onSelectTab('csv')} />
+          <UrlPane onSwitchToCsv={() => onSelectTab('csv')} url={url}
+            onUrlChange={onUrlChange} onSubmit={onSubmitUrl} busy={busy} />
         )}
       </div>
 

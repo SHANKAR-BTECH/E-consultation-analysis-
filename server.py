@@ -13,6 +13,9 @@ from csv_ingestion import parse_csv, inspect_columns, map_csv
 from persistence.database import init_app
 from persistence.flask_service import model_manifest, persist_analysis, PersistenceFailure
 from persistence.history_routes import history_api
+from config import URL_REQUEST_BYTES
+from url_ingestion import acquire_consultation, acquisition_lock
+from url_fetcher import URLAcquisitionError, validate_url
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_ANALYSIS_REQUEST_BYTES
@@ -26,7 +29,7 @@ app.register_blueprint(history_api)
 
 @app.after_request
 def revalidate_frontend(response):
-    if request.endpoint == "index":
+    if request.endpoint in ("index", "analyze_url"):
         response.headers["Cache-Control"] = "no-store"
     elif request.endpoint == "static":
         response.headers["Cache-Control"] = "no-cache"
@@ -37,6 +40,8 @@ def revalidate_frontend(response):
 def apply_request_limit():
     # Flask 3.1 supports per-request limits; retain the Phase 1 /predict ceiling.
     request.max_content_length = MAX_ANALYSIS_REQUEST_BYTES if request.path in ("/analyze", "/analyze-file") else MAX_REQUEST_BYTES
+    if request.path == '/analyze-url':
+        request.max_content_length = URL_REQUEST_BYTES
 
 
 def error(message, status=400):
@@ -118,6 +123,39 @@ def analyze_file():
                                              'encoding': 'utf-8-sig'})
     except BadRequest:
         return error("Malformed multipart CSV request.")
+
+
+@app.route('/analyze-url', methods=['POST'])
+def analyze_url():
+    try:
+        data = request.get_json()
+    except (BadRequest, UnsupportedMediaType, RecursionError):
+        return error('Submit a JSON object containing one public consultation url.')
+    if not isinstance(data, dict) or set(data) != {'url'}:
+        return error('Submit a JSON object containing only the url field.')
+    # This local-operator feature must not be invoked by another website.
+    origin = request.headers.get('Origin')
+    if origin and origin != request.host_url.rstrip('/'):
+        return error('Cross-origin URL analysis is not allowed.', 403)
+    try:
+        validate_url(data['url'])
+        if app.extensions.get('consultation_database') is None:
+            return error('URL analysis requires configured PostgreSQL persistence.', 503)
+        if not acquisition_lock.acquire(blocking=False):
+            raise URLAcquisitionError('URL_INGESTION_BUSY', 'Another URL analysis is in progress. Try again later.',
+                                      429, 'fetch', True)
+        try:
+            records, provenance = acquire_consultation(data['url'])
+            return run_analysis(records, **provenance)
+        finally:
+            acquisition_lock.release()
+    except URLAcquisitionError as exc:
+        return jsonify(error=True, message=str(exc), details=exc.details), exc.status
+    except AnalysisError:
+        raise
+    except Exception:
+        app.logger.error('URL acquisition failed.')
+        return error('The consultation could not be acquired. Upload a CSV instead.', 500)
 
 
 @app.route("/")

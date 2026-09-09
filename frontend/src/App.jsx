@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header.jsx';
 import AnalysisWorkspace from './components/AnalysisWorkspace.jsx';
 import ProcessingSection from './components/ProcessingSection.jsx';
@@ -9,7 +9,7 @@ import HelpSection from './components/HelpSection.jsx';
 import Footer from './components/Footer.jsx';
 import IssueDialog from './components/IssueDialog.jsx';
 import ConsultationHistory from './components/ConsultationHistory.jsx';
-import { checkHealth, analyzeResponses, inspectFile, analyzeCsv, APIError } from './lib/api.js';
+import { checkHealth, analyzeResponses, inspectFile, analyzeCsv, analyzeUrl, APIError } from './lib/api.js';
 import { parseResponses } from './lib/utils.js';
 import { SAMPLES, SAMPLE_LABELS } from './lib/presets.js';
 
@@ -28,6 +28,8 @@ export default function App() {
 
   // Ingestion mode
   const [mode, setMode] = useState('paste'); // 'paste' | 'csv' | 'url'
+  const [url, setUrl] = useState('');
+  const urlPending = useRef(false);
 
   // Text state
   const [text, setText] = useState('');
@@ -275,6 +277,26 @@ export default function App() {
     }
   };
 
+  const handleSubmitUrl = async () => {
+    if (busy || urlPending.current || !url.trim()) return;
+    urlPending.current = true;
+    setBusy(true);
+    setError(null);
+    setSampleNote(null);
+    try {
+      const data = await analyzeUrl(url.trim());
+      setSource('Public consultation URL');
+      setAnalysisResult(data);
+      setView('results');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setError(err instanceof APIError ? err : new APIError('The URL could not be analyzed. Upload a CSV instead.'));
+    } finally {
+      urlPending.current = false;
+      setBusy(false);
+    }
+  };
+
   const handleShowWorkspace = () => {
     if (busy) return;
     setView('workspace');
@@ -287,6 +309,7 @@ export default function App() {
     if (busy) return;
     handleClearText();
     handleRemoveFile();
+    setUrl('');
     setAnalysisResult(null);
     setView('workspace');
     setError(null);
@@ -364,6 +387,9 @@ export default function App() {
             onMappingChange={handleMappingChange}
             onToggleMetadata={handleToggleMetadata}
             onSubmitCsv={handleSubmitCsv}
+            url={url}
+            onUrlChange={(value) => { setUrl(value); setError(null); }}
+            onSubmitUrl={handleSubmitUrl}
             onSelectSample={handleSelectSample}
             sampleNote={sampleNote}
             hasResult={!!analysisResult}
@@ -371,7 +397,9 @@ export default function App() {
           />
         )}
 
-        {busy && <ProcessingSection />}
+        {busy && (mode === 'url'
+          ? <p className="notice" role="status">Fetching published responses, analyzing and saving…</p>
+          : <ProcessingSection />)}
 
         {view === 'history' && !busy && <ConsultationHistory onNewAnalysis={handleNewAnalysis} />}
 
