@@ -39,6 +39,7 @@ export default function ResultsSection({
   data,
   source,
   onEditInput,
+  onHome,
   onOpenIssue,
   persisted = false
 }) {
@@ -216,6 +217,30 @@ export default function ResultsSection({
 
   return (
     <section id="results" aria-labelledby="results-title">
+      {/* ── Analysis Navigation ── */}
+      {!persisted && (onHome || onEditInput) && (
+        <nav className="analysis-nav" aria-label="Analysis navigation">
+          {onHome && (
+            <button
+              type="button"
+              className="analysis-nav-link"
+              onClick={onHome}
+            >
+              <span aria-hidden="true">←</span> Home
+            </button>
+          )}
+          {onEditInput && (
+            <button
+              type="button"
+              className="analysis-nav-link"
+              onClick={onEditInput}
+            >
+              <span aria-hidden="true">+</span> New analysis
+            </button>
+          )}
+        </nav>
+      )}
+
       {/* ── Results Header ── */}
       <div className="results-heading">
         <div>

@@ -346,6 +346,7 @@ export default function App() {
             data={analysisResult}
             source={source}
             onEditInput={handleShowWorkspace}
+            onHome={() => { if (!busy) { setView('history'); setError(null); setDialogOpen(false); } }}
             onOpenIssue={handleOpenIssue}
           />
         )}
