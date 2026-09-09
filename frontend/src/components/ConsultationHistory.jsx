@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { listConsultations, getConsultation, getConsultationRun } from '../lib/api.js';
 import ResultsSection from './ResultsSection.jsx';
 import IssueDialog from './IssueDialog.jsx';
@@ -32,6 +32,8 @@ export function HistoryPanel({ list, detail, saved, selectedId, onSelect, onSele
         {isRefreshing ? 'Refreshing...' : 'Refresh History'}
       </button>
     </div>
+    {selectedId && list.status === 'error' &&
+      <Notice state={list} onRetry={onRetry} />}
     {!selectedId ? <>
       <Notice state={list} loading="Loading consultations…" onRetry={onRetry} />
       {list.status === 'success' && (list.data.length === 0
@@ -110,15 +112,14 @@ export default function ConsultationHistory({ onNewAnalysis }) {
   const [runId, setRunId] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshPending = useRef(false);
 
   const [list, setList] = useState({ status: 'loading' });
   const [detail, setDetail] = useState({ status: 'loading' });
   const [saved, setSaved] = useState({ status: 'loading' });
 
   const fetchList = useCallback(async (refresh = false) => {
-    if (refresh) {
-      setIsRefreshing(true);
-    } else {
+    if (!refresh) {
       setList({ status: 'loading' });
     }
     try {
@@ -126,16 +127,12 @@ export default function ConsultationHistory({ onNewAnalysis }) {
       setList({ status: 'success', data });
     } catch (error) {
       setList({ status: 'error', error: error.message || 'Consultation history could not be loaded.' });
-    } finally {
-      setIsRefreshing(false);
     }
   }, []);
 
   const fetchDetailAndRun = useCallback(async (cId, rId, refresh = false) => {
     if (!cId) return;
-    if (refresh) {
-      setIsRefreshing(true);
-    } else {
+    if (!refresh) {
       setDetail({ status: 'loading' });
     }
     try {
@@ -151,8 +148,6 @@ export default function ConsultationHistory({ onNewAnalysis }) {
       }
     } catch (error) {
       setDetail({ status: 'error', error: error.message || 'Consultation details could not be loaded.' });
-    } finally {
-      setIsRefreshing(false);
     }
   }, []);
 
@@ -172,15 +167,22 @@ export default function ConsultationHistory({ onNewAnalysis }) {
     setDialog(null);
   };
 
-  const handleRetry = useCallback(() => {
-    if (isRefreshing) return;
+  const handleRetry = useCallback(async () => {
+    if (refreshPending.current) return;
+    refreshPending.current = true;
+    setIsRefreshing(true);
     setDialog(null);
-    if (selectedId) {
-      fetchDetailAndRun(selectedId, runId, true);
-    } else {
-      fetchList(true);
+    try {
+      // The list must stay current even while a saved consultation is open.
+      await Promise.all([
+        fetchList(true),
+        selectedId ? fetchDetailAndRun(selectedId, runId, true) : Promise.resolve(),
+      ]);
+    } finally {
+      refreshPending.current = false;
+      setIsRefreshing(false);
     }
-  }, [isRefreshing, selectedId, runId, fetchDetailAndRun, fetchList]);
+  }, [selectedId, runId, fetchDetailAndRun, fetchList]);
 
   return <>
     <HistoryPanel list={list} detail={detail} saved={saved} selectedId={selectedId}

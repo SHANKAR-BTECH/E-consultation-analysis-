@@ -89,6 +89,9 @@ class PostgreSQLHistoryTests(unittest.TestCase):
         with db.transaction() as session:
             before = {name: session.scalar(sa.select(sa.func.count()).select_from(table))
                       for name, table in s.metadata.tables.items()}
+            expected_ids = [str(identity) for identity in session.scalars(
+                sa.select(s.consultations.c.id).order_by(
+                    s.consultations.c.created_at.desc(), s.consultations.c.id.desc()))]
             completed = session.execute(sa.select(s.analysis_runs).where(
                 s.analysis_runs.c.status == 'COMPLETED').order_by(s.analysis_runs.c.created_at).limit(1)).mappings().one()
             failed = session.execute(sa.select(s.analysis_runs).where(
@@ -101,6 +104,7 @@ class PostgreSQLHistoryTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200, response.json)
             items = response.json['consultations']
             self.assertEqual(len(items), before['consultations'])
+            self.assertEqual([item['id'] for item in items], expected_ids)
             self.assertTrue(all('result_json' not in str(item.keys()) for item in items))
             cid, rid = completed['consultation_id'], completed['id']
             detail = client.get(f'/consultations/{cid}')
