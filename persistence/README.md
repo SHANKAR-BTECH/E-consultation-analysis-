@@ -4,7 +4,8 @@ Opt-in PostgreSQL storage using SQLAlchemy Core 2, psycopg 3 and Alembic.
 Existing Flask routes, health checks, analysis, ML and React do not import or
 initialize this package. Installing dependencies does not enable persistence.
 There are no database APIs, users/auth, authoritative requests/recommendations,
-workers or automatic retries. Phase 5C is not implemented.
+workers or automatic retries. Phase 5C adds only `service.py`, a transaction-scoped
+service for future trusted backend callers; no Flask integration is enabled.
 
 ## Schema and integrity
 
@@ -48,14 +49,71 @@ it commits on success and rolls back on exceptions. Inference must occur outside
 the write transaction. `complete_run` uses a savepoint; if outer commit fails,
 record failure only in a separate transaction after rollback. Callers provide
 the manifest for the actually loaded artifacts/rules and safe failure messages.
-Manifest validation, scheduling and persistent API access are future work.
+Artifact availability/manifest identity verification, scheduling and persistent
+API access are future work. The service validates manifest JSON shape only.
 
 Operation receipts use `(scope, operation_kind, operation_key)` uniqueness.
 Identical delivery fingerprints return the original receipt; a different
-fingerprint raises `IdempotencyConflict`. Future command orchestration must
-reserve the key before side effects or roll back speculative resources on replay;
-calling `record_operation` after creating resources alone is not sufficient to
-prevent duplicate work. Scope must include the consultation where already known.
+fingerprint raises `IdempotencyConflict`. Use service `execute_operation` to
+serialize each key with a transaction-scoped PostgreSQL advisory lock **before**
+checking the receipt or creating resources. It requires READ COMMITTED so the
+receipt lookup sees the winner's commit after waiting. Hash collisions only
+serialize unrelated commands; full keys/fingerprints still determine identity.
+All command callers must use this protocol; low-level `record_operation` alone
+does not prevent speculative duplicate resources. Scope must include the
+consultation where already known. No lock timeout or automatic retry is added.
+
+## Phase 5C service usage
+
+`PersistenceService(session)` requires an explicit active transaction and never
+commits it. Use one acceptance command per transaction. Return a successful
+receipt to a future caller only **after** outer commit succeeds.
+
+```python
+from persistence.database import Database
+from persistence.service import PersistenceService
+
+db = Database()  # explicit opt-in; requires DATABASE_URL
+with db.transaction() as session:
+    service = PersistenceService(session)
+    title = 'Public transport consultation'
+    def create(service):
+        identity = service.create_consultation(title)
+        return {'consultation_id': identity, 'receipt': {'id': str(identity)}}
+    receipt = service.execute_operation(
+        scope='local', kind='create_consultation', key='caller-delivery-key',
+        request={'title': title}, command=create)
+# receipt is now committed
+```
+
+Available operations:
+
+- `create_consultation(title)` returns a UUID.
+- `create_import(consultation_id, records, **provenance)` returns import UUID and
+  ordered response UUIDs. It preserves duplicate and invalid occurrences, raw
+  records, mapped inputs, typed IDs and supplied provenance, then seals the import.
+- `create_snapshot(consultation_id, response_ids)` seals that exact ordered
+  selection and returns a UUID. No response/snapshot editing operation exists.
+- `create_run(snapshot_id, model_manifest)` creates PENDING; `retry_run(failed_id)`
+  creates a distinct run with the same snapshot and pinned manifest.
+- `start_run`, `fail_run(code=..., message=...)`, and `complete_run(run_id, result)`
+  enforce the existing lifecycle. Completion persists accepted/rejected rows,
+  predictions, findings, all evidence memberships, representative ranks/quotes
+  and exact result JSON together. There are no separately committed partial results.
+- `check_operation(scope=..., kind=..., key=..., request=...)` returns a receipt or
+  None and detects fingerprint conflicts. Absence is not a reservation.
+- `execute_operation(..., command=...)` checks, creates and records in one unit.
+  The callback receives this service and returns typed receipt targets and JSON
+  receipt. Include **all** semantic inputs in `request`; UUIDs/bytes must have an
+  explicit stable JSON representation (e.g. UUID string and raw-byte checksum).
+  Callbacks must use the same session and perform no inference/external effects.
+
+Import/snapshot creation and command execution use savepoints to discard staged
+writes if an exception is caught. Completion retains its existing savepoint.
+Deferred constraints still execute at outer commit, so commit failures must roll
+back the whole transaction. Record run failure in a fresh transaction afterward.
+Inference stays outside transactions; callers must load and verify pinned artifacts
+before supplying trusted results. This service does not compute or alter analysis.
 
 Hashes use SHA-256 of UTF-8 Python JSON with sorted object keys, compact separators,
 unescaped Unicode and finite numbers. Array order, text whitespace and ID types
@@ -90,6 +148,7 @@ must be designed before storing production citizen records.
 
 ```powershell
 .\venv\Scripts\python.exe -m unittest persistence.test_foundation -v
+.\venv\Scripts\python.exe -m unittest persistence.test_service -v
 .\venv\Scripts\python.exe -m alembic upgrade head --sql
 .\venv\Scripts\python.exe -m alembic downgrade 0001:base --sql
 .\venv\Scripts\python.exe -m unittest discover -s tests -v
@@ -101,6 +160,10 @@ The 10 focused tests cover configuration, lazy sessions/rollback events, scoped
 FK structure, duplicate occurrence creation, accepted-only joins, PostgreSQL DDL
 compilation, indexes, typed hashes, retry arguments and receipt conflict behavior.
 Repository unit tests use mocks and are **not PostgreSQL integration tests**.
+The 14 service tests exercise validation, transaction requirements, generated
+write graphs, provenance, duplicate occurrences, retry lineage, lifecycle guards,
+savepoint exception propagation and idempotency orchestration with mocked SQL
+execution. They do not prove database rollback or concurrent behavior.
 Offline Alembic output compiles table/index DDL and emits trigger SQL; it does not
 parse or execute PL/pgSQL on a server. SQLite is not used as a substitute.
 
@@ -108,8 +171,14 @@ PostgreSQL is unavailable locally. Live upgrade/downgrade, trigger execution,
 deferred constraints, actual rollback, concurrent sealing/completion and
 idempotency, and persisted JSON round-trip checks remain unverified and require
 a disposable PostgreSQL database. No PostgreSQL integration pass is claimed.
+For Phase 5C specifically, verify competing identical keys create only one
+resource, differing fingerprints conflict, and rollback releases the advisory lock
+without an accepted receipt. Also verify terminal guards and full result graph
+commit/rollback against migrated PostgreSQL. SQLite is not a substitute.
 
-Local verification on 9 September 2026: 72 backend tests, 21 JavaScript tests
-(12 static-frontend and 9 React-helper), and 10 focused persistence tests passed.
+Phase 5C local verification on 9 September 2026: 72 backend tests, 21 JavaScript
+tests (12 static-frontend and 9 React-helper), and 24 focused persistence tests
+(10 foundation + 14 service) passed. The static suite initially lacked its local
+Flask test prerequisite; all 21 passed after starting the unchanged Flask app.
 Active model/vectorizer SHA-256 hashes match the Phase 5A verification record;
 the final Git diff contains no ML, analysis, API or frontend source changes.
