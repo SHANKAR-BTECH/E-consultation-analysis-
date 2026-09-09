@@ -28,7 +28,7 @@ export default function RecommendationsSection({ recommendations = [] }) {
             {rec.evidence && (
               <div className="rec-detail-block">
                 <span className="field-label">CITIZEN EVIDENCE:</span>
-                <p className="rec-evidence-text">"{rec.evidence}"</p>
+                <p className="rec-evidence-text">"{typeof rec.evidence === 'string' ? rec.evidence : rec.evidence.text}"</p>
               </div>
             )}
 

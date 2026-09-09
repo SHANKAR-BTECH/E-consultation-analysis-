@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Header({ systemReady, systemError, onReset }) {
+export default function Header({ systemReady, systemError, onReset, onHistory, view }) {
   let statusClass = '';
   let statusText = 'Checking system';
 
@@ -34,7 +34,7 @@ export default function Header({ systemReady, systemError, onReset }) {
           <a
             href="#workspace"
             id="nav-analysis"
-            aria-current="page"
+            aria-current={view !== 'history' ? 'page' : undefined}
             onClick={(e) => {
               e.preventDefault();
               onReset();
@@ -42,6 +42,8 @@ export default function Header({ systemReady, systemError, onReset }) {
           >
             Analysis
           </a>
+          <a href="#consultation-history" aria-current={view === 'history' ? 'page' : undefined}
+            onClick={(event) => { event.preventDefault(); onHistory(); }}>Previous Consultations</a>
           <a href="#about">About</a>
           <a href="#help">Help</a>
         </nav>

@@ -8,6 +8,7 @@ from copy import deepcopy
 import sqlalchemy as sa
 
 from . import repository as repo, schema_v1 as s
+from . import history
 
 
 def _text(value, name, limit):
@@ -23,6 +24,18 @@ class PersistenceService:
     def _transaction(self):
         if not self.session.in_transaction():
             raise RuntimeError('Use an explicit Database.transaction() context.')
+
+    def list_consultations(self):
+        self._transaction()
+        return history.list_consultations(self.session)
+
+    def get_consultation(self, consultation_id):
+        self._transaction()
+        return history.get_consultation(self.session, consultation_id)
+
+    def get_run(self, consultation_id, run_id):
+        self._transaction()
+        return history.get_run(self.session, consultation_id, run_id)
 
     def create_consultation(self, title):
         self._transaction()

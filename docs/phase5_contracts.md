@@ -1,5 +1,124 @@
 # Phase 5A — Contract characterization and persistence semantics
 
+## Phase 5E — persisted consultation history (9 September 2026)
+
+This additive read surface builds on Phase 5D (`a6b08dc`). No migration, schema,
+inference, model, or analysis-algorithm change is included. The four legacy routes
+retain their Phase 5D behavior and exact response contracts.
+
+### Read-only HTTP contract
+
+| Request | Success body |
+| --- | --- |
+| `GET /consultations` | `{consultations:[ConsultationSummary,...]}` |
+| `GET /consultations/<consultation_id>` | `Consultation` plus `runs:[RunMetadata,...]` |
+| `GET /consultations/<consultation_id>/runs/<run_id>` | `{run:RunMetadata,result:Analysis2_0|null}` |
+
+`Consultation` contains `id` (UUID string), `title`, `status` (ACTIVE/ARCHIVED),
+`created_at`, and `updated_at`. `ConsultationSummary` adds `latest_run`, which is
+`RunMetadata` or null when no run exists. Consultations and runs are ordered by
+`created_at` descending, then UUID descending for deterministic ties. All
+consultations are returned, including archived records and failed-only records.
+There is no pagination, search, filtering or hidden truncation in this local slice.
+
+`RunMetadata` contains `id`, `status` (PENDING/RUNNING/COMPLETED/FAILED),
+`created_at`, `started_at`, `ended_at`, `response_count`, `accepted_count`, and
+`failure`. Timestamps use ISO 8601 strings with timezone offsets; unset start/end
+timestamps are null. `response_count` counts all snapshot members, including
+duplicates and rejected rows. `accepted_count` is the saved result's
+`total_responses` for completed runs, otherwise null. `failure` is the stored
+caller-sanitized `{code,message}` for failed runs, otherwise null.
+
+The result endpoint scopes the run to the specified consultation in its SQL
+predicate. A COMPLETED run returns its exact persisted schema-2.0 JSON; it does
+not reload models or reanalyze responses. All other run states return HTTP 200
+with their metadata and `result:null`, never a partial or fabricated analysis.
+The list/detail queries select small metadata projections rather than whole
+result blobs; the list obtains each consultation's latest run in one SQL query.
+
+All three endpoints use PostgreSQL `SET TRANSACTION READ ONLY` through the
+existing transaction/service boundary. Responses use `Cache-Control: no-store`.
+Malformed UUIDs return 400; absent consultations/runs and cross-consultation run
+lookups return 404. Missing persistence configuration or database read failures
+return 503, not an empty successful list. Controlled errors use the existing
+`{error:true,message:string}` envelope and never expose driver exceptions.
+Only GET (plus Flask's automatic HEAD/OPTIONS) is supported. Authentication/users
+remain outside this phase; access has the same local-operator scope as Phase 5D.
+
+### React behavior
+
+The existing navigation now includes **Previous Consultations**. It fetches
+PostgreSQL-backed metadata through `frontend/src/lib/api.js` and Flask. Each
+record shows its identifier, date/time in the browser's locale, submitted response
+count and latest run status. Selecting it opens the consultation and automatically
+loads the latest run. A run selector also permits reviewing older completed or
+failed attempts. Refresh performs fresh reads; there is no automatic polling.
+
+The component has separate loading, empty-list, no-runs, read-error,
+PENDING/RUNNING, FAILED and completed-result states. Requests from an obsolete
+selection or unmounted component cannot replace the current selection's data.
+Failed reads provide retry; failed analysis runs show their saved failure message
+and do not masquerade as completed results. Opening saved data does not replace
+the user's unsent workspace inputs.
+
+Completed runs reuse `ResultsSection` and the existing evidence dialog and visual
+styles. Saved-result mode bypasses all localStorage trend reads/writes and hides
+the local trend panel, so opening history cannot create a new browser-side run
+or present localStorage as authoritative consultation history. The existing live
+analysis view retains its previous trend behavior. Two evidence render sites now
+render structured representative feedback's `text` field (also accepting the
+existing string form); this fixes a React object-child crash revealed by real
+saved issues without changing extraction, counts, evidence payloads or algorithms.
+
+The Vite development proxy forwards `/consultations` to Flask on port 5000.
+Production hosting must likewise route these paths to Flask alongside the
+existing analysis routes. No direct database access or credentials exist in React.
+
+### Verification
+
+- **84 backend tests passed** with PostgreSQL persistence and the live history
+  test enabled. This includes all existing API/ML tests and 7 new history tests.
+- The live test reads the existing `e_consultation` records, compares returned
+  results exactly with stored JSON, verifies failed-run results are null and
+  cross-consultation lookups fail, and confirms every persistence table's row
+  count is unchanged by history reads. No Phase 5B–5D migration was rerun.
+- **31 JavaScript tests passed** (10 new history/render tests, 9 existing React
+  contract tests and 12 existing static-frontend tests). They cover loading,
+  empty, success, errors/retry presentation, no runs,
+  failed/unfinished runs, metadata, scoped GET requests, structured evidence and
+  reuse of the existing result view. An additional live check fetches actual
+  saved records through Vite → Flask → PostgreSQL and renders them with React.
+  Existing React-helper and static-frontend tests also pass.
+- All **24 existing persistence service/foundation tests** also passed after
+  adding the read methods.
+- React production build and lint pass (lint reports existing warnings).
+  No connected browser was available; verification used actual React rendering
+  and live HTTP/proxy tests, not an interactive browser smoke test.
+- Active model SHA-256 remains
+  `497888DCC4801A5D1DE5F48FC2B5160C05E38DB6AA95D4261CF42963AB911927`;
+  active vectorizer SHA-256 remains
+  `7E4F15FED3E6A3A104CB8D42E7BF73AC8F45EF7859F4436288ECD4988377FEE4`.
+
+Run the focused backend and complete backend suites with `DATABASE_URL` set:
+
+```powershell
+$env:RUN_POSTGRES_INTEGRATION = '1'
+.\venv\Scripts\python.exe -m unittest tests.test_history -v
+.\venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+With Flask on port 5000 and Vite on port 5173:
+
+```powershell
+$env:HISTORY_BASE_URL = 'http://127.0.0.1:5173'
+node --test tests/phase5_history.test.mjs tests/phase5_react_contracts.test.mjs tests/frontend.test.mjs
+npm.cmd --prefix frontend run build
+npm.cmd --prefix frontend run lint
+```
+
+Stop at Phase 5E. No authentication, editing, deletion, retry commands, workers,
+search, filters or Phase 5F implementation is included.
+
 ## Phase 5D implementation update (9 September 2026)
 
 This update supersedes the historical statements below that Flask never imports

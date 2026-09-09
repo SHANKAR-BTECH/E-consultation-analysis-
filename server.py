@@ -12,6 +12,7 @@ from analysis_service import analyze_batch, AnalysisError
 from csv_ingestion import parse_csv, inspect_columns, map_csv
 from persistence.database import init_app
 from persistence.flask_service import model_manifest, persist_analysis, PersistenceFailure
+from persistence.history_routes import history_api
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_ANALYSIS_REQUEST_BYTES
@@ -20,6 +21,7 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_ANALYSIS_REQUEST_BYTES
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config['DATABASE_URL'] = os.environ.get('DATABASE_URL')
 init_app(app)
+app.register_blueprint(history_api)
 
 
 @app.after_request

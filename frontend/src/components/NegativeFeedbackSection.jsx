@@ -112,7 +112,7 @@ export default function NegativeFeedbackSection({
                 <div className="quotes-list">
                   {item.representativeFeedback.slice(0, isExpanded ? 6 : 2).map((quote, qIdx) => (
                     <blockquote key={qIdx} className="negative-quote">
-                      <p>"{quote}"</p>
+                      <p>"{typeof quote === 'string' ? quote : quote.text}"</p>
                     </blockquote>
                   ))}
                 </div>

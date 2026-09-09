@@ -8,6 +8,7 @@ import AboutSection from './components/AboutSection.jsx';
 import HelpSection from './components/HelpSection.jsx';
 import Footer from './components/Footer.jsx';
 import IssueDialog from './components/IssueDialog.jsx';
+import ConsultationHistory from './components/ConsultationHistory.jsx';
 import { checkHealth, analyzeResponses, inspectFile, analyzeCsv, APIError } from './lib/api.js';
 import { parseResponses } from './lib/utils.js';
 import { SAMPLES, SAMPLE_LABELS } from './lib/presets.js';
@@ -19,7 +20,7 @@ const LIMITS = {
 };
 
 export default function App() {
-  const [view, setView] = useState('workspace'); // 'workspace' | 'results'
+  const [view, setView] = useState('workspace'); // 'workspace' | 'results' | 'history'
   const [busy, setBusy] = useState(false);
   const [systemReady, setSystemReady] = useState(false);
   const [systemError, setSystemError] = useState(null);
@@ -288,6 +289,8 @@ export default function App() {
         systemReady={systemReady}
         systemError={systemError}
         onReset={handleShowWorkspace}
+        view={view}
+        onHistory={() => { if (!busy) { setView('history'); setError(null); setDialogOpen(false); } }}
       />
 
       <main className="container">
@@ -333,6 +336,8 @@ export default function App() {
         )}
 
         {busy && <ProcessingSection />}
+
+        {view === 'history' && !busy && <ConsultationHistory onNewAnalysis={handleShowWorkspace} />}
 
         {error && <ActionError error={error} onDismiss={() => setError(null)} />}
 

@@ -152,3 +152,35 @@ export async function predictFeedback(text) {
     body: JSON.stringify({ text })
   });
 }
+
+const runStates = ['PENDING', 'RUNNING', 'COMPLETED', 'FAILED'];
+const validRun = (run) => object(run) && typeof run.id === 'string' &&
+  runStates.includes(run.status) && typeof run.created_at === 'string' &&
+  Number.isInteger(run.response_count) && run.response_count >= 0 &&
+  (run.accepted_count === null || (Number.isInteger(run.accepted_count) && run.accepted_count >= 0));
+const validConsultation = (item) => object(item) && typeof item.id === 'string' &&
+  typeof item.title === 'string' && typeof item.created_at === 'string';
+
+function historyFormat(valid) {
+  if (!valid) throw new APIError('The service returned an unexpected consultation history format.');
+}
+
+export async function listConsultations() {
+  const data = await request('/consultations');
+  historyFormat(Array.isArray(data?.consultations) && data.consultations.every((item) =>
+    validConsultation(item) && (item.latest_run === null || validRun(item.latest_run))));
+  return data.consultations;
+}
+
+export async function getConsultation(id) {
+  const data = await request(`/consultations/${encodeURIComponent(id)}`);
+  historyFormat(validConsultation(data) && Array.isArray(data.runs) && data.runs.every(validRun));
+  return data;
+}
+
+export async function getConsultationRun(consultationId, runId) {
+  const data = await request(`/consultations/${encodeURIComponent(consultationId)}/runs/${encodeURIComponent(runId)}`);
+  historyFormat(validRun(data?.run) && (data.run.status === 'COMPLETED' || data.result === null));
+  if (data.run.status === 'COMPLETED') validateAnalysis(data.result);
+  return data;
+}

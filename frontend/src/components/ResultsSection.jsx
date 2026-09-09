@@ -39,7 +39,8 @@ export default function ResultsSection({
   data,
   source,
   onEditInput,
-  onOpenIssue
+  onOpenIssue,
+  persisted = false
 }) {
   const [historyRecords, setHistoryRecords] = useState([]);
   const [filters, setFilters] = useState({
@@ -83,7 +84,7 @@ export default function ResultsSection({
 
   // Manage persistent consultation trend history
   useEffect(() => {
-    if (!data || !data.sentiment) return;
+    if (persisted || !data || !data.sentiment) return;
 
     const currentHistory = trendHistory.loadHistory();
     const posPct = data.sentiment.percentages?.positive || 0;
@@ -105,7 +106,7 @@ export default function ResultsSection({
     const updated = trendHistory.saveRecord(newRecord);
     newRecord.interpretation = trendHistory.getInterpretation(updated);
     setHistoryRecords(trendHistory.loadHistory());
-  }, [data, source, intelligence]);
+  }, [data, source, intelligence, persisted]);
 
   const handleClearHistory = () => {
     trendHistory.clearHistory();
@@ -113,8 +114,8 @@ export default function ResultsSection({
   };
 
   const trendInterpretation = useMemo(() => {
-    return trendHistory.getInterpretation(historyRecords);
-  }, [historyRecords]);
+    return persisted ? '' : trendHistory.getInterpretation(historyRecords);
+  }, [historyRecords, persisted]);
 
   const overallAssessmentText = useMemo(() => {
     if (!data || !intelligence) return '';
@@ -233,7 +234,7 @@ export default function ResultsSection({
           className="button secondary"
           onClick={onEditInput}
         >
-          Edit inputs <span aria-hidden="true">↗</span>
+          {persisted ? 'New analysis' : 'Edit inputs'} <span aria-hidden="true">↗</span>
         </button>
       </div>
 
@@ -248,7 +249,7 @@ export default function ResultsSection({
         <a href="#mixed-feedback">Mixed Feedback</a>
         <a href="#recommendations">Recommendations</a>
         <a href="#explorer">Respondent Evidence</a>
-        <a href="#trend-section">Trend History</a>
+        {!persisted && <a href="#trend-section">Trend History</a>}
         <a href="#overall-assessment">Overall Assessment</a>
         <a href="#quality-section">Data Quality</a>
       </nav>
@@ -312,10 +313,10 @@ export default function ResultsSection({
       />
 
       {/* ── 10. Longitudinal Trend Graph: "How feedback is changing" ── */}
-      <TrendGraph
+      {!persisted && <TrendGraph
         history={historyRecords}
         onClearHistory={handleClearHistory}
-      />
+      />}
 
       {/* ── 11. Overall Assessment ── */}
       <OverallAssessment assessment={overallAssessmentText} />
