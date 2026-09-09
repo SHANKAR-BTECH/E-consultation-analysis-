@@ -4,20 +4,6 @@ import ResultsSection from './ResultsSection.jsx';
 import IssueDialog from './IssueDialog.jsx';
 import './ConsultationHistory.css';
 
-function useResource(load, enabled, revision) {
-  const [state, setState] = useState({});
-  useEffect(() => {
-    if (!enabled) return;
-    let current = true;
-    load().then(
-      (data) => { if (current) setState({ load, revision, status: 'success', data }); },
-      (error) => { if (current) setState({ load, revision, status: 'error', error: error.message }); }
-    );
-    return () => { current = false; };
-  }, [load, enabled, revision]);
-  return state.load === load && state.revision === revision ? state : { status: 'loading' };
-}
-
 const timestamp = (value) => value ? new Date(value).toLocaleString() : 'Unavailable';
 
 function Notice({ state, loading, onRetry }) {
@@ -122,36 +108,79 @@ export function HistoryPanel({ list, detail, saved, selectedId, onSelect, onSele
 export default function ConsultationHistory({ onNewAnalysis }) {
   const [selectedId, setSelectedId] = useState(null);
   const [runId, setRunId] = useState(null);
-  const [revision, setRevision] = useState(0);
   const [dialog, setDialog] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const list = useResource(listConsultations, true, revision);
-  const loadDetail = useCallback(() => getConsultation(selectedId), [selectedId]);
-  const detail = useResource(loadDetail, !!selectedId, revision);
-  const activeRunId = runId || detail.data?.runs[0]?.id;
-  const loadRun = useCallback(() => getConsultationRun(selectedId, activeRunId), [selectedId, activeRunId]);
-  const saved = useResource(loadRun, !!selectedId && !!activeRunId, revision);
-  const select = (id) => { setSelectedId(id); setRunId(null); setDialog(null); };
+  const [list, setList] = useState({ status: 'loading' });
+  const [detail, setDetail] = useState({ status: 'loading' });
+  const [saved, setSaved] = useState({ status: 'loading' });
+
+  const fetchList = useCallback(async (refresh = false) => {
+    if (refresh) {
+      setIsRefreshing(true);
+    } else {
+      setList({ status: 'loading' });
+    }
+    try {
+      const data = await listConsultations();
+      setList({ status: 'success', data });
+    } catch (error) {
+      setList({ status: 'error', error: error.message || 'Consultation history could not be loaded.' });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  const fetchDetailAndRun = useCallback(async (cId, rId, refresh = false) => {
+    if (!cId) return;
+    if (refresh) {
+      setIsRefreshing(true);
+    } else {
+      setDetail({ status: 'loading' });
+    }
+    try {
+      const dData = await getConsultation(cId);
+      setDetail({ status: 'success', data: dData });
+      const targetRunId = rId || dData?.runs?.[0]?.id;
+      if (targetRunId) {
+        if (!refresh) setSaved({ status: 'loading' });
+        const sData = await getConsultationRun(cId, targetRunId);
+        setSaved({ status: 'success', data: sData });
+      } else {
+        setSaved({ status: 'success', data: null });
+      }
+    } catch (error) {
+      setDetail({ status: 'error', error: error.message || 'Consultation details could not be loaded.' });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!isRefreshing) return;
-    const isBusy = (!selectedId && list.status === 'loading') ||
-      (!!selectedId && (detail.status === 'loading' || (activeRunId && saved.status === 'loading')));
-    if (!isBusy) {
-      const timer = setTimeout(() => {
-        setIsRefreshing(false);
-      }, 350);
-      return () => clearTimeout(timer);
+    fetchList(false);
+  }, [fetchList]);
+
+  useEffect(() => {
+    if (selectedId) {
+      fetchDetailAndRun(selectedId, runId, false);
     }
-  }, [isRefreshing, selectedId, activeRunId, list.status, detail.status, saved.status]);
+  }, [selectedId, runId, fetchDetailAndRun]);
+
+  const select = (id) => {
+    setSelectedId(id);
+    setRunId(null);
+    setDialog(null);
+  };
 
   const handleRetry = useCallback(() => {
     if (isRefreshing) return;
-    setIsRefreshing(true);
-    setRevision((value) => value + 1);
     setDialog(null);
-  }, [isRefreshing]);
+    if (selectedId) {
+      fetchDetailAndRun(selectedId, runId, true);
+    } else {
+      fetchList(true);
+    }
+  }, [isRefreshing, selectedId, runId, fetchDetailAndRun, fetchList]);
 
   return <>
     <HistoryPanel list={list} detail={detail} saved={saved} selectedId={selectedId}

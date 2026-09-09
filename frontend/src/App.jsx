@@ -80,6 +80,27 @@ export default function App() {
     verify();
   }, []);
 
+  // Sync view with URL hash
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash;
+      if (hash === '#consultation-history') {
+        setView('history');
+        setError(null);
+        setDialogOpen(false);
+      } else if (hash === '#workspace' || hash === '' || hash === '#analysis') {
+        setView('workspace');
+        setError(null);
+        setDialogOpen(false);
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    if (window.location.hash === '#consultation-history') {
+      setView('history');
+    }
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
   const handleSelectTab = (newMode) => {
     if (busy) return;
     setMode(newMode);

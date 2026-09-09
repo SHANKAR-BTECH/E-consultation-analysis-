@@ -420,11 +420,11 @@ body:has(dialog[open]){overflow:hidden}
   color: var(--muted);
 }
 
-/* ── 1. EXECUTIVE / OVERVIEW: Surface: #F4F7FB, Accent: #315B8A ── */
+/* ── 1. EXECUTIVE / OVERVIEW: Surface: #E8EEF6, Accent: #315B8A ── */
 #executive-brief,
 .executive-brief-section {
-  background: #F4F7FB;
-  border: 1px solid #dbe3ed;
+  background: #E8EEF6;
+  border: 1px solid #c9d5e4;
   border-left: 5px solid #315B8A;
   border-radius: 8px;
   padding: 38px 40px;
@@ -456,13 +456,13 @@ body:has(dialog[open]){overflow:hidden}
   line-height: 1.7;
 }
 
-/* ── 2. KEY FINDINGS / PRIORITY ACTIONS: Surface: #F7F5EF, Accent: #6B5B35 ── */
+/* ── 2. KEY FINDINGS / PRIORITY ACTIONS: Surface: #EEEADF, Accent: #6B5B35 ── */
 #priority-actions,
 .priority-actions-section,
 #key-findings,
 .key-findings-section {
-  background: #F7F5EF;
-  border: 1px solid #ded9cc;
+  background: #EEEADF;
+  border: 1px solid #d3ccbd;
   border-left: 5px solid #6B5B35;
   border-radius: 8px;
   padding: 38px 40px;
@@ -603,11 +603,11 @@ body:has(dialog[open]){overflow:hidden}
   padding-top: 14px;
 }
 
-/* ── 3. WHAT PEOPLE ARE ASKING FOR / REQUESTS: Surface: #F1F7F3, Accent: #367052 ── */
+/* ── 3. WHAT PEOPLE ARE ASKING FOR / REQUESTS: Surface: #E4F0E8, Accent: #367052 ── */
 #requests-section,
 .requests-section {
-  background: #F1F7F3;
-  border: 1px solid #d1e3d6;
+  background: #E4F0E8;
+  border: 1px solid #c2d8c9;
   border-left: 5px solid #367052;
   border-radius: 8px;
   padding: 38px 40px;
@@ -677,10 +677,10 @@ body:has(dialog[open]){overflow:hidden}
   display: block;
 }
 
-/* ── 4. PROBLEMS REQUIRING ATTENTION: Surface: #FCF3F1, Accent: #A44235 ── */
+/* ── 4. PROBLEMS REQUIRING ATTENTION: Surface: #F5E5E2, Accent: #A44235 ── */
 #negative-feedback {
-  background: #FCF3F1;
-  border: 1px solid #ecdcd8;
+  background: #F5E5E2;
+  border: 1px solid #e2cac5;
   border-left: 5px solid #A44235;
   border-radius: 8px;
   padding: 38px 40px;
@@ -835,11 +835,11 @@ body:has(dialog[open]){overflow:hidden}
   border-top: 1px solid #ecefe9;
 }
 
-/* ── 5. IMPROVEMENTS REPORTED: Surface: #F0F7F4, Accent: #3F765C ── */
+/* ── 5. IMPROVEMENTS REPORTED: Surface: #E3F0E8, Accent: #3F765C ── */
 #improvements-section,
 .improvements-section {
-  background: #F0F7F4;
-  border: 1px solid #cfe2d7;
+  background: #E3F0E8;
+  border: 1px solid #c0d8cb;
   border-left: 5px solid #3F765C;
   border-radius: 8px;
   padding: 38px 40px;
@@ -903,11 +903,11 @@ body:has(dialog[open]){overflow:hidden}
   border-top: 1px solid #eef1ed;
 }
 
-/* ── 6. MIXED FEEDBACK: Surface: #FBF7EE, Accent: #9A6A27 ── */
+/* ── 6. MIXED FEEDBACK: Surface: #F2EADB, Accent: #9A6A27 ── */
 #mixed-feedback,
 .mixed-feedback-section {
-  background: #FBF7EE;
-  border: 1px solid #ede4d1;
+  background: #F2EADB;
+  border: 1px solid #dfd4bf;
   border-left: 5px solid #9A6A27;
   border-radius: 8px;
   padding: 38px 40px;
@@ -995,10 +995,10 @@ body:has(dialog[open]){overflow:hidden}
   color: var(--ink);
 }
 
-/* ── 7. RECOMMENDED AREAS OF ACTION: Surface: #F2F4FA, Accent: #3D5685 ── */
+/* ── 7. RECOMMENDED AREAS OF ACTION: Surface: #E5EAF4, Accent: #3D5685 ── */
 #recommendations,
 .recommendations-section {
-  background: #F2F4FA;
+  background: #E5EAF4;
   border: 1px solid #d5dced;
   border-left: 5px solid #3D5685;
   border-radius: 8px;
@@ -1062,10 +1062,10 @@ body:has(dialog[open]){overflow:hidden}
   margin: 0;
 }
 
-/* ── 8. LONGITUDINAL TREND: Surface: #F3F5F8, Accent: #53677D ── */
+/* ── 8. LONGITUDINAL TREND: Surface: #E6EAF0, Accent: #53677D ── */
 #trend-section,
 .trend-graph-section {
-  background: #F3F5F8;
+  background: #E6EAF0;
   border: 1px solid #d7dde6;
   border-left: 5px solid #53677D;
   border-radius: 8px;
@@ -1166,10 +1166,10 @@ body:has(dialog[open]){overflow:hidden}
   line-height: 1.6;
 }
 
-/* ── 9. OVERALL ASSESSMENT / SENTIMENT: Surface: #F5F6F8, Accent: #4B5968 ── */
+/* ── 9. OVERALL ASSESSMENT / SENTIMENT: Surface: #E8EBEE, Accent: #4B5968 ── */
 #overall-assessment,
 .overall-assessment-section {
-  background: #F5F6F8;
+  background: #E8EBEE;
   border: 1px solid #d9dde4;
   border-left: 5px solid #4B5968;
   border-radius: 8px;
@@ -1197,7 +1197,7 @@ body:has(dialog[open]){overflow:hidden}
 
 #sentiment-overview,
 .sentiment-overview-section {
-  background: #F5F6F8;
+  background: #E8EBEE;
   border: 1px solid #d9dde4;
   border-left: 5px solid #4B5968;
   border-radius: 8px;
@@ -1221,10 +1221,10 @@ body:has(dialog[open]){overflow:hidden}
   margin-bottom: 22px;
 }
 
-/* ── 10. CITIZEN FEEDBACK EXPLORER: Surface: #F7F4F0, Accent: #4E5965 ── */
+/* ── 10. CITIZEN FEEDBACK EXPLORER: Surface: #EEE9E3, Accent: #4E5965 ── */
 #explorer,
 .citizen-explorer-card {
-  background: #F7F4F0;
+  background: #EEE9E3;
   border: 1px solid #ded8d0;
   border-left: 5px solid #4E5965;
   border-radius: 8px;
@@ -1669,10 +1669,10 @@ body:has(dialog[open]){overflow:hidden}
   font-size: 15px;
 }
 
-/* ── 11. DATA QUALITY / GOVERNANCE: Surface: #F4F4F2, Accent: #62645F ── */
+/* ── 11. DATA QUALITY / GOVERNANCE: Surface: #E9E9E5, Accent: #62645F ── */
 #quality-section,
 .quality-section {
-  background: #F4F4F2;
+  background: #E9E9E5;
   border: 1px solid #deded9;
   border-left: 5px solid #62645F;
   border-radius: 8px;
