@@ -158,8 +158,15 @@ const validRun = (run) => object(run) && typeof run.id === 'string' &&
   runStates.includes(run.status) && typeof run.created_at === 'string' &&
   Number.isInteger(run.response_count) && run.response_count >= 0 &&
   (run.accepted_count === null || (Number.isInteger(run.accepted_count) && run.accepted_count >= 0));
+// Optional additive provenance: null/absent for non-URL consultations.
+const validSource = (source) => source === null || source === undefined ||
+  (object(source) && typeof source.original_url === 'string' &&
+    (source.canonical_url === undefined || typeof source.canonical_url === 'string' || source.canonical_url === null) &&
+    (source.adapter === undefined || typeof source.adapter === 'string' || source.adapter === null) &&
+    (source.published_response_count === undefined || source.published_response_count === null ||
+      Number.isInteger(source.published_response_count)));
 const validConsultation = (item) => object(item) && typeof item.id === 'string' &&
-  typeof item.title === 'string' && typeof item.created_at === 'string';
+  typeof item.title === 'string' && typeof item.created_at === 'string' && validSource(item.source);
 
 function historyFormat(valid) {
   if (!valid) throw new APIError('The service returned an unexpected consultation history format.');

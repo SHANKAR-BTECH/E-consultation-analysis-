@@ -6,6 +6,32 @@ import './ConsultationHistory.css';
 
 const timestamp = (value) => value ? new Date(value).toLocaleString() : 'Unavailable';
 
+// URL provenance is optional; consultations from text/CSV/JSON simply omit it.
+function SourceProvenance({ source }) {
+  if (!source || typeof source.original_url !== 'string') return null;
+  return <div className="history-provenance">
+    <dl>
+      <dt>Source</dt>
+      <dd>Public consultation URL</dd>
+      <dt>Original URL</dt>
+      <dd><code className="history-provenance-url">{source.original_url}</code>
+        {/^https:\/\//i.test(source.original_url) && <>
+          {' '}<a className="button secondary history-provenance-link" href={source.original_url}
+            target="_blank" rel="noopener noreferrer">Open original ↗</a>
+        </>}
+      </dd>
+      {typeof source.adapter === 'string' && source.adapter && <>
+        <dt>Adapter</dt>
+        <dd>{source.adapter}</dd>
+      </>}
+      {Number.isInteger(source.published_response_count) && <>
+        <dt>Published responses</dt>
+        <dd>{source.published_response_count.toLocaleString('en-IN')}</dd>
+      </>}
+    </dl>
+  </div>;
+}
+
 function Notice({ state, loading, onRetry }) {
   if (state.status === 'loading') return <p className="notice" role="status">{loading}</p>;
   if (state.status === 'error') return <div className="notice error" role="alert">
@@ -54,6 +80,7 @@ export function HistoryPanel({ list, detail, saved, selectedId, onSelect, onSele
               <span className="meta-status">{item.latest_run?.status ?? 'NO RUNS'}</span>
             </p>
             <p className="history-identifier">Consultation ID: <code>{item.id}</code></p>
+            {item.source && <p className="history-card-source">Source: Public consultation URL</p>}
             <div className="history-card-actions">
               <button
                 type="button"
@@ -75,6 +102,7 @@ export function HistoryPanel({ list, detail, saved, selectedId, onSelect, onSele
         <div className="report-section history-detail">
           <h2>{detail.data.title}</h2>
           <p className="history-identifier">Consultation ID: <code>{detail.data.id}</code></p>
+          <SourceProvenance source={detail.data.source} />
           <p className="muted">{timestamp(detail.data.created_at)} · {detail.data.status}</p>
           {detail.data.runs.length === 0 ? <p role="status">No analysis runs have been saved for this consultation.</p>
             : <><label htmlFor="history-run">Analysis run</label>
