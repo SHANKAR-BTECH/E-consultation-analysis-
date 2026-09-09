@@ -9,7 +9,7 @@ From the repository root, start Flask:
 ```
 
 PostgreSQL must be running and `DATABASE_URL` must be configured in the backend
-terminal for URL analysis and history. Keep database credentials out of frontend files.
+terminal for analysis persistence and consultation history. Keep database credentials out of frontend files.
 
 From the repository root in the second terminal:
 
@@ -18,18 +18,16 @@ cd frontend
 npm.cmd run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ```
 
-Open http://127.0.0.1:5173/ and select **Public URL** for the URL input and
-**Analyze consultation** action. Existing supported-source restrictions apply.
+Open http://127.0.0.1:5173/ and select **Paste Feedback**, **Upload CSV** or
+**Upload Excel** for the input, then **Analyze consultation** action.
 
 `npm.cmd` works when PowerShell execution policy blocks `npm.ps1`. The strict
 port option reports a conflict instead of silently selecting another port.
 Stopping Vite makes the website unavailable. Flask is required for analysis and history.
 
 The API client uses relative URLs. Vite proxies `/health`, `/consultations`,
-`/analyze` (including `/analyze-url` and `/analyze-file`), and `/predict` to
+`/analyze`, `/analyze-file`, and `/predict` to
 http://127.0.0.1:5000. No frontend API environment variable is required.
-The explicit `/analyze-url` proxy preserves the browser Host header so Flask's
-same-origin check can validate browser submissions without relaxing security.
 
 Use `npm.cmd ci` only if dependencies need installation from the existing lockfile.
 Validate from the frontend directory with `npm.cmd run build`, `npm.cmd run lint`,

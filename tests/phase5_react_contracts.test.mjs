@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {checkHealth, predictFeedback, analyzeResponses, inspectFile, analyzeCsv,
-  validateAnalysis, APIError} from '../frontend/src/lib/api.js';
+  inspectExcelFile, analyzeExcel, validateAnalysis, APIError} from '../frontend/src/lib/api.js';
 import {parseResponses} from '../frontend/src/lib/utils.js';
 import {extractRequests, extractNegativeIssues, synthesizeRecommendations}
   from '../frontend/src/lib/consultationIntelligence.js';
@@ -55,6 +55,26 @@ test('CSV inspection and analysis resend file and preserve explicit blank mappin
   const form = analyzed[0].options.body;
   assert.equal(form.get('mode'), 'analyze');
   assert.equal(form.get('file').name, 'fixture.csv');
+  assert.equal(form.get('date_column'), '');
+  assert.equal(form.get('category_column'), '');
+  assert.equal(form.get('metadata_columns'), '["region"]');
+});
+
+test('Excel inspection and analysis send file, sheet and preserve blank mappings', async t => {
+  const file = new File(['x'], 'fixture.xlsx', {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const calls = intercept(t, {columns:['text'],row_count:1,suggested_mapping:{text_column:'text'}});
+  await inspectExcelFile(file, 'Sheet1');
+  assert.equal(calls[0].path, '/analyze-file');
+  assert.equal(calls[0].options.body.get('mode'), 'inspect');
+  assert.equal(calls[0].options.body.get('sheet'), 'Sheet1');
+  assert.equal(calls[0].options.body.get('file').name, 'fixture.xlsx');
+  t.mock.restoreAll();
+  const analyzed = intercept(t, minimal);
+  await analyzeExcel(file, {text_column:'text',date_column:'',category_column:''}, ['region'], 'Sheet1');
+  const form = analyzed[0].options.body;
+  assert.equal(form.get('mode'), 'analyze');
+  assert.equal(form.get('sheet'), 'Sheet1');
+  assert.equal(form.get('file').name, 'fixture.xlsx');
   assert.equal(form.get('date_column'), '');
   assert.equal(form.get('category_column'), '');
   assert.equal(form.get('metadata_columns'), '["region"]');

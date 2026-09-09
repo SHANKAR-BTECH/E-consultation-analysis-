@@ -15,7 +15,9 @@ service for future trusted backend callers; no Flask integration is enabled.
 ## Schema and integrity
 
 `schema_v1.py` and `guards_v1.py` are the frozen inputs to migration `0001`.
-Future applied-schema changes need a new migration, not edits to these files.
+Migration `0002` widens the `imports.source_type` check to `'excel'` (matching the
+added workbook upload); the versioned metadata and the migration must change
+together. Future applied-schema changes need a new migration, not edits to these files.
 
 | Tables | Purpose |
 | --- | --- |
@@ -33,8 +35,9 @@ restricted. History, pending-run and reverse-provenance indexes support expected
 lookups. Content, hashes, titles and caller IDs are **not unique**. JSONB retains
 integer versus string IDs and invalid/null source records. Import ordinals and
 snapshot positions identify occurrences, including legitimate duplicate text.
-CSV headers, encoding and declared source context belong in `source_metadata`;
-`mapping` retains omitted versus explicitly empty selections. Raw bytes are
+CSV headers, encoding, workbook sheet names and declared source context belong
+in `source_metadata`; `mapping` retains omitted versus explicitly empty selections.
+Raw bytes are
 optional. Callers must supply this provenance; the repository cannot recover
 information already discarded by a parser.
 

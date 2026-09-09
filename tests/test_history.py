@@ -25,86 +25,6 @@ def consultation_row():
                 created_at=datetime(2026, 9, 9), updated_at=datetime(2026, 9, 9))
 
 
-class ProvenanceProjectionTests(unittest.TestCase):
-    """The additive source field is derived only from the sealed import row."""
-
-    def test_url_provenance_is_exposed_when_present(self):
-        row = import_row(acquisition_kind='url', original_url='https://www.mygov.in/group-issue/x/',
-                         canonical_url='https://www.mygov.in/group-issue/x/',
-                         adapter='mygov-published-comments-v1', published_response_count=123,
-                         started_at='2026-09-09T00:00:00+00:00')
-        self.assertEqual(history.source(row), {
-            'original_url': 'https://www.mygov.in/group-issue/x/',
-            'canonical_url': 'https://www.mygov.in/group-issue/x/',
-            'adapter': 'mygov-published-comments-v1', 'published_response_count': 123})
-
-    def test_adapter_is_preserved_exactly_and_canonical_optional(self):
-        row = import_row(acquisition_kind='url', original_url='https://example.gov/c',
-                         adapter='registered-response-export-v1', published_response_count=None)
-        self.assertEqual(history.source(row),
-                         {'original_url': 'https://example.gov/c',
-                          'adapter': 'registered-response-export-v1', 'published_response_count': None})
-
-    def test_non_url_and_missing_provenance_stay_null(self):
-        self.assertIsNone(history.source(None))
-        self.assertIsNone(history.source(import_row()))
-        self.assertIsNone(history.source(import_row(endpoint='/analyze')))
-        self.assertIsNone(history.source(import_row(acquisition_kind='url', original_url=None)))
-        self.assertIsNone(history.source(import_row(acquisition_kind='url', original_url=17)))
-        self.assertIsNone(history.source(import_row(acquisition_kind='csv', original_url='https://x')))
-
-    def test_published_count_only_when_integer(self):
-        self.assertIsNone(history.source(import_row(
-            acquisition_kind='url', original_url='https://x', published_response_count='many'))
-            ['published_response_count'])
-        self.assertIsNone(history.source(import_row(
-            acquisition_kind='url', original_url='https://x', published_response_count=True))
-            ['published_response_count'])
-
-    def mappings_mock(self, rows, first):
-        mappings = MagicMock()
-        rows = rows or []
-        mappings.__iter__.return_value = iter(rows)
-        mappings.first.return_value = first
-        mappings.one_or_none.return_value = rows[0] if rows else None
-        return mappings
-
-    def execute_result(self, rows, first):
-        result = MagicMock()
-        result.mappings.return_value = self.mappings_mock(rows, first)
-        return result
-
-    def test_projection_attaches_source_only_to_matching_consultation(self):
-        cid = uuid4()
-        session = MagicMock()
-        provenance = import_row(acquisition_kind='url', original_url='https://www.mygov.in/group-issue/x/',
-                                adapter='mygov-published-comments-v1', published_response_count=7)
-        session.execute.side_effect = [
-            self.execute_result([dict(consultation_row(), id=cid)], None),  # consultations row
-            self.execute_result([], None),                                  # runs
-            self.execute_result(None, provenance),                          # first import
-        ]
-        detail = history.get_consultation(session, cid)
-        self.assertEqual(detail['source']['original_url'], 'https://www.mygov.in/group-issue/x/')
-        self.assertEqual(detail['source']['published_response_count'], 7)
-        self.assertEqual(detail['source']['adapter'], 'mygov-published-comments-v1')
-        self.assertEqual(detail['runs'], [])
-        self.assertEqual(detail['title'], 'Stored consultation')
-        import_statement = session.execute.call_args_list[2].args[0]
-        self.assertIn('imports', str(import_statement.compile()))
-        self.assertIn(str(cid), str(import_statement.compile().params))
-
-    def test_projection_without_import_keeps_null_source(self):
-        cid = uuid4()
-        session = MagicMock()
-        session.execute.side_effect = [
-            self.execute_result([dict(consultation_row(), id=cid)], None),
-            self.execute_result([], None),
-            self.execute_result(None, None),
-        ]
-        self.assertIsNone(history.get_consultation(session, cid)['source'])
-
-
 class HistoryAPITests(unittest.TestCase):
     def setUp(self):
         self.client = app.test_client()
@@ -165,13 +85,6 @@ class HistoryAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json['result'])
         self.assertEqual(response.json['run']['status'], 'FAILED')
-
-    def test_detail_passes_additive_source_provenance(self):
-        detail = {'id': self.cid, 'title': 'Stored consultation', 'runs': [],
-                  'source': {'original_url': 'https://www.mygov.in/group-issue/x/',
-                             'adapter': 'mygov-published-comments-v1', 'published_response_count': 123}}
-        self.service.get_consultation.return_value = detail
-        self.assertEqual(self.client.get('/consultations/' + self.cid).json, detail)
 
     def test_history_has_no_write_methods(self):
         for path in ['/consultations', f'/consultations/{self.cid}', f'/consultations/{self.cid}/runs/{self.rid}']:

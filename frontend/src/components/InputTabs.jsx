@@ -24,14 +24,14 @@ export default function InputTabs({ mode, onSelectTab, busy }) {
         Upload CSV
       </button>
       <button
-        id="tab-url"
+        id="tab-excel"
         role="tab"
-        aria-selected={mode === 'url'}
-        aria-controls="pane-url"
-        tabIndex={mode === 'url' ? 0 : -1}
-        onClick={() => !busy && onSelectTab('url')}
+        aria-selected={mode === 'excel'}
+        aria-controls="pane-excel"
+        tabIndex={mode === 'excel' ? 0 : -1}
+        onClick={() => !busy && onSelectTab('excel')}
       >
-        Public URL
+        Upload Excel
       </button>
     </div>
   );

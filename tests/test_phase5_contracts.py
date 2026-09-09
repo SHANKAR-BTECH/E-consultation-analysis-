@@ -313,7 +313,7 @@ class Phase5ContractTests(unittest.TestCase):
         files = MultiDict([('file', (io.BytesIO(b'text\nx\n'), 'one.csv')),
                            ('file', (io.BytesIO(b'text\ny\n'), 'two.csv'))])
         self.assert_error(self.client.post('/analyze-file', data=files, content_type='multipart/form-data'),
-                          message='Submit exactly one CSV in the file field.')
+                          message='Submit exactly one file in the file field.')
         self.assert_error(self.upload(b'text\nx\n', mode='save'), message='mode must be inspect or analyze.')
 
     def test_analysis_routes_unavailable_and_generic_failure(self):

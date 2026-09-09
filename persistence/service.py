@@ -50,7 +50,7 @@ class PersistenceService:
         self._transaction()
         records = deepcopy(records)
         provenance = deepcopy(provenance)
-        if provenance.get('source_type', 'json') not in ('json', 'paste', 'csv'):
+        if provenance.get('source_type', 'json') not in ('json', 'paste', 'csv', 'excel'):
             raise ValueError('Unknown import source type.')
         for name in ('mapping', 'source_metadata'):
             value = provenance.get(name)

@@ -17,6 +17,8 @@ MAX_BATCH_CHARACTERS = 1_000_000
 MAX_ANALYSIS_REQUEST_BYTES = 6_500_000
 MAX_CSV_BYTES = 5_000_000
 MAX_CSV_COLUMNS = 50
+MAX_EXCEL_BYTES = 10_000_000
+MAX_EXCEL_COLUMNS = 50
 MAX_METADATA_CHARACTERS = 2000
 INFERENCE_BATCH_SIZE = 128
 MAX_DISCOVERED_TERMS = 50_000
@@ -32,16 +34,3 @@ PRIORITY_HIGH_THRESHOLD = 75
 PRIORITY_MEDIUM_THRESHOLD = 50
 PROJECT_TITLE = "E-CONSULTATION FEEDBACK SENTIMENT ANALYSIS USING NLP & MACHINE LEARNING"
 # Supported classes come from model.classes_, never a fallback label list.
-
-# URL acquisition only; existing analysis limits and behavior are unchanged.
-URL_REQUEST_BYTES = 16_384
-URL_TOTAL_SECONDS = 20
-URL_MAX_BYTES = 5_000_000
-URL_HTML_BYTES = 2_000_000
-URL_BUNDLE_BYTES = 8_000_000
-URL_MAX_REDIRECTS = 3
-URL_MAX_REQUESTS = 20
-URL_MAX_PAGES = 10
-# Operator-reviewed exact URLs only. No public export was verified in Phase 6A.
-# Values: {'format': 'csv'|'json', 'mapping': {...}}. Never supplied by clients.
-URL_RESPONSE_EXPORTS = {}

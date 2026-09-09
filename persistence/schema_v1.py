@@ -49,7 +49,7 @@ imports = sa.Table('imports', metadata,
     col('mapping', JSONB), col('parser_version', sa.String(80)), col('record_count', sa.Integer),
     stamp(), sa.Column('sealed_at', sa.DateTime(timezone=True)),
     fk(['consultation_id'], ['consultations.id']), sa.UniqueConstraint('id', 'consultation_id'),
-    check("source_type IN ('json','paste','csv')", 'source_type'), check('record_count > 0', 'record_count'),
+    check("source_type IN ('json','paste','csv','excel')", 'source_type'), check('record_count > 0', 'record_count'),
     check("raw_checksum IS NULL OR raw_checksum ~ '^[0-9a-f]{64}$'", 'checksum'),
     sa.Index('ix_imports_history', 'consultation_id', 'created_at', 'id'))
 

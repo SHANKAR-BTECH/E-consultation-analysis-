@@ -9,25 +9,6 @@ def consultation(row):
             for key in ('id', 'title', 'status', 'created_at', 'updated_at')}
 
 
-# Additive URL provenance read from the sealed import of origin. Consultations
-# without URL ingestion keep source: null; nothing is invented here.
-def source(import_row):
-    if import_row is None:
-        return None
-    metadata = import_row.get('source_metadata') if isinstance(import_row, dict) else import_row.source_metadata
-    if not isinstance(metadata, dict):
-        metadata = {}
-    if metadata.get('acquisition_kind') != 'url' or not isinstance(metadata.get('original_url'), str):
-        return None
-    provenance = {'original_url': metadata['original_url'], 'adapter': metadata.get('adapter')}
-    canonical = metadata.get('canonical_url')
-    if isinstance(canonical, str) and canonical:
-        provenance['canonical_url'] = canonical
-    count = metadata.get('published_response_count')
-    provenance['published_response_count'] = count if isinstance(count, int) and not isinstance(count, bool) else None
-    return provenance
-
-
 def first_import(session, consultation_id):
     return session.execute(sa.select(s.imports).where(
         s.imports.c.consultation_id == consultation_id).order_by(
@@ -56,8 +37,7 @@ def list_consultations(session):
     rows = session.execute(sa.select(s.consultations, *columns).outerjoin(latest, sa.true()).order_by(
         s.consultations.c.created_at.desc(), s.consultations.c.id.desc())).mappings()
     return [dict(consultation(row), latest_run=run({key: row['run_' + key] for key in latest.c.keys()})
-                 if row['run_id'] is not None else None,
-                 source=source(first_import(session, row['id']))) for row in rows]
+                 if row['run_id'] is not None else None) for row in rows]
 
 
 def get_consultation(session, consultation_id):
@@ -67,8 +47,7 @@ def get_consultation(session, consultation_id):
         return None
     runs = session.execute(run_query().where(s.analysis_runs.c.consultation_id == consultation_id).order_by(
         s.analysis_runs.c.created_at.desc(), s.analysis_runs.c.id.desc())).mappings()
-    return dict(consultation(row), runs=[run(item) for item in runs],
-                source=source(first_import(session, consultation_id)))
+    return dict(consultation(row), runs=[run(item) for item in runs])
 
 
 def get_run(session, consultation_id, run_id):

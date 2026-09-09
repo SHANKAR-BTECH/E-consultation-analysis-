@@ -96,14 +96,6 @@ export async function checkHealth() {
   return await request('/health');
 }
 
-export async function analyzeUrl(url) {
-  return validateAnalysis(await request('/analyze-url', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url })
-  }));
-}
-
 export async function analyzeResponses(responses) {
   // responses is an array of raw strings
   const payload = {
@@ -153,6 +145,44 @@ export async function analyzeCsv(file, mapping, metadata = []) {
   return validateAnalysis(data);
 }
 
+export async function inspectExcelFile(file, sheet = '') {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('mode', 'inspect');
+  if (sheet) form.append('sheet', sheet);
+
+  const data = await request('/analyze-file', {
+    method: 'POST',
+    body: form
+  });
+
+  if (!Array.isArray(data?.columns) || !Number.isInteger(data?.row_count) || !object(data?.suggested_mapping)) {
+    throw new APIError('The service could not provide usable columns. Please check the file.');
+  }
+
+  return data;
+}
+
+export async function analyzeExcel(file, mapping, metadata = [], sheet = '') {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('mode', 'analyze');
+  if (sheet) form.append('sheet', sheet);
+
+  Object.entries(mapping).forEach(([key, value]) => {
+    form.append(key, value || '');
+  });
+
+  form.append('metadata_columns', JSON.stringify(metadata));
+
+  const data = await request('/analyze-file', {
+    method: 'POST',
+    body: form
+  });
+
+  return validateAnalysis(data);
+}
+
 export async function predictFeedback(text) {
   return await request('/predict', {
     method: 'POST',
@@ -166,15 +196,9 @@ const validRun = (run) => object(run) && typeof run.id === 'string' &&
   runStates.includes(run.status) && typeof run.created_at === 'string' &&
   Number.isInteger(run.response_count) && run.response_count >= 0 &&
   (run.accepted_count === null || (Number.isInteger(run.accepted_count) && run.accepted_count >= 0));
-// Optional additive provenance: null/absent for non-URL consultations.
-const validSource = (source) => source === null || source === undefined ||
-  (object(source) && typeof source.original_url === 'string' &&
-    (source.canonical_url === undefined || typeof source.canonical_url === 'string' || source.canonical_url === null) &&
-    (source.adapter === undefined || typeof source.adapter === 'string' || source.adapter === null) &&
-    (source.published_response_count === undefined || source.published_response_count === null ||
-      Number.isInteger(source.published_response_count)));
 const validConsultation = (item) => object(item) && typeof item.id === 'string' &&
-  typeof item.title === 'string' && typeof item.created_at === 'string' && validSource(item.source);
+  typeof item.title === 'string' && typeof item.created_at === 'string' &&
+  (item.source === undefined || item.source === null || typeof item.source === 'string');
 
 function historyFormat(valid) {
   if (!valid) throw new APIError('The service returned an unexpected consultation history format.');

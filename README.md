@@ -4,11 +4,11 @@ Consultation intelligence engine with an integrated analysis frontend. The prima
 
 ## Current capabilities and architecture
 
-The Flask website provides **batch consultation analysis from pasted responses or CSV**: aggregate sentiment, exact-phrase keywords/topics, recurring negative-associated candidate issues, priority scores, source quotes, deterministic summaries, and conditional date/category breakdowns. Streamlit and the CLI retain their single-response interfaces.
+The Flask website provides **batch consultation analysis from pasted responses, CSV or Excel workbooks**: aggregate sentiment, exact-phrase keywords/topics, recurring negative-associated candidate issues, priority scores, source quotes, deterministic summaries, and conditional date/category breakdowns. Streamlit and the CLI retain their single-response interfaces.
 
 `Flask website / Streamlit / CLI → model_service.py → text_utils.py → saved TF-IDF → saved Multinomial Naive Bayes`
 
-All three existing interfaces use the same inference service. New batch endpoints call `analysis_service.py`, which normalizes response records, calls that same service in sparse chunks, and delegates derived statistics to `text_insights.py`. CSV ingestion maps columns into the same records. Artifacts are loaded once per process; restart a running interface after changing them. Flask remains the existing backend.
+All three existing interfaces use the same inference service. New batch endpoints call `analysis_service.py`, which normalizes response records, calls that same service in sparse chunks, and delegates derived statistics to `text_insights.py`. CSV and Excel ingestion map columns into the same records. Artifacts are loaded once per process; restart a running interface after changing them. Flask remains the existing backend.
 
 | File or directory | Responsibility |
 |---|---|
@@ -17,6 +17,7 @@ All three existing interfaces use the same inference service. New batch endpoint
 | `analysis_service.py` | Shared single/batch analysis, record normalization, exclusions and date normalization |
 | `text_insights.py` | Phrase counts, topics, candidate issues, priority, evidence, summaries and breakdowns |
 | `csv_ingestion.py` | Bounded CSV parsing, column inspection and explicit mappings |
+| `excel_ingestion.py` | Bounded .xlsx workbook parsing, sheet selection, column inspection and explicit mappings |
 | `text_utils.py` | Existing shared light preprocessing, unchanged |
 | `evaluation_info.py` | Reads evaluation display values from existing reports |
 | `server.py` | Flask homepage, prediction and readiness endpoints |
@@ -28,14 +29,14 @@ All three existing interfaces use the same inference service. New batch endpoint
 | `tests/` | Standard-library unittest suite, Streamlit interaction tests and real HTTP startup checks |
 | `models/`, `outputs/`, `backup/` | Saved artifacts, actual reports and preserved originals |
 
-The frontend includes CSV column inspection/mapping, a searchable and paginated response explorer, sentiment/category/topic filters, issue evidence, data-quality details, and accessible HTML sentiment/trend charts. All analytical results come from the existing API. URL extraction remains visibly **Coming soon**; no URL fetching or Chrome extension is implemented. See [frontend implementation and verification](docs/frontend-verification.md).
+The frontend includes CSV/Excel column inspection and sheet selection, a searchable and paginated response explorer, sentiment/category/topic filters, issue evidence, data-quality details, and accessible HTML sentiment/trend charts. All analytical results come from the existing API. See [frontend implementation and verification](docs/frontend-verification.md).
 
 ## Phase 2 API and methodology
 
 See [the complete frontend/API contract](docs/analysis-api.md) for all request/response fields, error details, CSV mappings, limits, integration examples, and an evidence-based response excerpt.
 
 - `POST /analyze`: JSON `{ "responses": [{ "text": "...", "date": "2026-01-02", "category": "Water" }] }`. Only `text` is required per row. Optional `id`, `source`, and flat `metadata` are preserved. Invalid rows are explicitly reported; statistics use valid rows only.
-- `POST /analyze-file`: multipart `file` upload. `mode=inspect` returns columns and suggestions. `mode=analyze` (default) accepts `text_column` and optional date/category/id/source/metadata column selections, then returns exactly the same analysis structure as `/analyze`.
+- `POST /analyze-file`: multipart `file` upload of a `.csv` or `.xlsx` file. `mode=inspect` returns columns and suggestions (Excel responses also list `sheets`; provide `sheet` for a specific worksheet). `mode=analyze` (default) accepts `text_column` and optional date/category/id/source/metadata column selections, then returns exactly the same analysis structure as `/analyze`.
 - Existing `/predict`, `/health`, and `/` contracts remain intact.
 
 **Sentiment is the existing ML output.** Keywords/topics are deterministic NLP output: exact contiguous 1–3-word phrases, lowercased, with stopwords omitted (negation retained). Counts are response mentions, not raw token counts. Phrases cannot bridge removed stopwords or punctuation. Candidate labels rank by `mention_count * (1 + 0.5 * (word_count - 1))`; overlapping labels sharing words and at least 80% Jaccard overlap in matching responses are suppressed, without merging counts. Topic names always come from the input. This is exact-phrase discovery, not semantic clustering.
@@ -48,7 +49,7 @@ Representatives are up to three unchanged source responses, sorted by negative s
 
 Dates are aggregated by source calendar day when parseable. Invalid dates generate row warnings and exclude only that row's date from trends. With no usable dates/categories, the corresponding result has `available=false` and an explanation. Category issues are intersections of the selected global issues, with local counts, eligibility and scores.
 
-The synchronous request limits are 2,000 records, 5,000 characters per response, 1,000,000 combined text characters, 5,000,000 CSV bytes and 6,500,000 analysis HTTP body bytes. Inference uses chunks of 128. A 50,000-term discovery cap is explicitly reported if reached. Uploads/results are not persisted. Bounds reside in `config.py`; memory usage is bounded, not an unlimited streaming architecture.
+The synchronous request limits are 2,000 records, 5,000 characters per response, 1,000,000 combined text characters, 5,000,000 CSV bytes, 10,000,000 Excel bytes, 50 CSV/Excel columns and 6,500,000 analysis HTTP body bytes. Inference uses chunks of 128. A 50,000-term discovery cap is explicitly reported if reached. Bounds reside in `config.py`; memory usage is bounded, not an unlimited streaming architecture.
 
 ## Installation and run commands
 
@@ -223,4 +224,4 @@ Run `python -m tests.benchmark_analysis` for reproducible bounded scale checks. 
 
 These are local measurements of generated/repeated fixtures, not an accuracy benchmark, concurrency test or production latency guarantee. Network overhead and cold model loading are excluded. The full JSON response at the character limit was approximately 1.49 MB. Different vocabulary/date/category diversity can change time and memory use.
 
-Future URL extraction will output normalized response records into `analyze_batch`. There is no URL endpoint or fetching in Phase 2. A future adapter must identify actual accessible feedback entries, attach source provenance, bound extraction, respect access restrictions, and fall back to CSV/text if no feedback can be identified. Policy documents and navigation text must not be counted as citizen responses.
+Excel workbooks use a bounded openpyxl read (macros are not executed), read the first worksheet by default or an explicit `sheet`, coerce every cell to text, and require unique non-empty column headers. Excel analysis flows through the same `analyze_batch` records as paste and CSV, so the response envelope and model behavior are identical across all three input modes.

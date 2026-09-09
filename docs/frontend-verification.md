@@ -13,7 +13,7 @@ Completed in the continuation: the controller and renderer, real paste/CSV flows
 - [x] Visual system, header, original logo, analysis workspace and input tabs.
 - [x] Paste input, line/paragraph separation, response/character counters, Clear and illustrative samples.
 - [x] CSV upload, inspection, explicit response/date/category/ID/source/metadata mappings.
-- [x] Disabled URL input clearly marked Coming soon; no network extraction.
+- [x] Excel (.xlsx) upload, sheet selection, inspection and explicit column mappings.
 - [x] Honest indeterminate loading state; inputs retained after errors.
 - [x] API-derived results, metrics, findings, sentiment visualization, keywords and topics.
 - [x] Priority issues, original evidence and displayed priority contributions.
@@ -36,7 +36,7 @@ Completed in the continuation: the controller and renderer, real paste/CSV flows
 
 `templates/index.html` defines the semantic layout. `static/css/style.css` defines the responsive visual system. Under `static/js/`, `app.js` controls interactions; `api.js` owns transport and validation; `state.js` owns filtering/pagination; `render.js` renders API results and evidence; `charts.js` builds accessible HTML charts; `utils.js` supplies formatting/escaping; `samples.js` holds explicitly illustrative examples. `package.json` enables native-module Node tests, not a frontend build pipeline.
 
-`server.py` only supplies existing configured input limits to the template. Model artifacts, TF-IDF, Naive Bayes, preprocessing, analytics, CSV ingestion and the `/health`, `/predict`, `/analyze`, `/analyze-file` routes remain intact. Streamlit is a separate, unchanged interface.
+`server.py` only supplies existing configured input limits to the template. Model artifacts, TF-IDF, Naive Bayes, preprocessing, analytics, CSV/Excel ingestion and the `/health`, `/predict`, `/analyze`, `/analyze-file` routes remain intact. Streamlit is a separate, unchanged interface.
 
 ## Run and retest
 
@@ -58,4 +58,4 @@ Node is only needed for the JavaScript tests. The site has no npm installation/b
 
 ## Deliberate limitations
 
-URL extraction remains future work. This is still an English-language, bounded local prototype with uncalibrated confidence and exact-phrase topics/issues—not semantic policy reasoning or an independently validated consultation model. Loading cannot show measured completion percentages because the synchronous API does not expose progress. No production deployment, authentication, persistence, independent model evaluation or comprehensive accessibility audit was added. No reference screenshots were attached in the available task, so visual review followed the written design direction.
+This is an English-language, bounded local prototype with uncalibrated confidence and exact-phrase topics/issues—not semantic policy reasoning or an independently validated consultation model. Excel workbooks are parsed with bounded read-only access that never executes macros. Loading cannot show measured completion percentages because the synchronous API does not expose progress. No production deployment, authentication, persistence, independent model evaluation or comprehensive accessibility audit was added. No reference screenshots were attached in the available task, so visual review followed the written design direction.

@@ -1,7 +1,7 @@
 import React from 'react';
 import TextPane from './TextPane.jsx';
 import CsvPane from './CsvPane.jsx';
-import UrlPane from './UrlPane.jsx';
+import ExcelUpload from './ExcelUpload.jsx';
 
 export default function MainWorkbench({
   activeTab,
@@ -38,14 +38,14 @@ export default function MainWorkbench({
               ? 'ACTIVE CANVAS: DIRECT TEXT SUBMISSION'
               : activeTab === 'csv'
               ? 'ACTIVE CANVAS: STRUCTURED CSV INGESTION'
-              : 'CANVAS: PORTAL INTEGRATION'}
+              : 'ACTIVE CANVAS: EXCEL WORKBOOK INGESTION'}
           </span>
           <h1 className="active-canvas-title">
             {activeTab === 'paste'
               ? 'Public Consultation Response Studio'
               : activeTab === 'csv'
               ? 'Batch Dataset Column Mapping & Audit'
-              : 'Public Consultation Web Harvester'}
+              : 'Excel Workbook Sheet & Column Mapping'}
           </h1>
         </div>
 
@@ -88,9 +88,8 @@ export default function MainWorkbench({
         />
       )}
 
-      {activeTab === 'url' && (
-        <UrlPane
-          onSwitchToCsv={() => onSelectTab('csv')}
+      {activeTab === 'excel' && (
+        <ExcelUpload
           busy={busy}
         />
       )}

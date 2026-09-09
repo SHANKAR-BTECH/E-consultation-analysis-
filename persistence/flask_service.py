@@ -21,7 +21,7 @@ def model_manifest(service):
     """Identify actual cached inference objects as well as on-disk artifacts/rules."""
     files = [MODEL_PATH, VECTORIZER_PATH] + [PROJECT_DIR / name for name in (
         'model_service.py', 'analysis_service.py', 'text_utils.py',
-        'text_insights.py', 'config.py', 'csv_ingestion.py')]
+        'text_insights.py', 'config.py', 'csv_ingestion.py', 'excel_ingestion.py')]
     return {
         'version': 'flask-analysis-v1', 'schema_version': '2.0',
         'python': platform.python_version(),

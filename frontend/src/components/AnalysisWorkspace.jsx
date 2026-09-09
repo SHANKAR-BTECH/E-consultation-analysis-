@@ -3,7 +3,7 @@ import Hero from './Hero.jsx';
 import InputTabs from './InputTabs.jsx';
 import PasteResponses from './PasteResponses.jsx';
 import CsvUpload from './CsvUpload.jsx';
-import UrlPane from './UrlPane.jsx';
+import ExcelUpload from './ExcelUpload.jsx';
 import { SAMPLE_LABELS } from '../lib/presets.js';
 
 export default function AnalysisWorkspace({
@@ -28,9 +28,19 @@ export default function AnalysisWorkspace({
   onMappingChange,
   onToggleMetadata,
   onSubmitCsv,
-  url,
-  onUrlChange,
-  onSubmitUrl,
+  // Excel
+  excelFile,
+  excelInspection,
+  excelSheets,
+  excelSheet,
+  excelMapping,
+  excelMetadataColumns,
+  onExcelFileSelected,
+  onExcelSheetChange,
+  onRemoveExcelFile,
+  onExcelMappingChange,
+  onToggleExcelMetadata,
+  onSubmitExcel,
   // Samples
   onSelectSample,
   sampleNote,
@@ -73,9 +83,22 @@ export default function AnalysisWorkspace({
           />
         )}
 
-        {mode === 'url' && (
-          <UrlPane onSwitchToCsv={() => onSelectTab('csv')} url={url}
-            onUrlChange={onUrlChange} onSubmit={onSubmitUrl} busy={busy} />
+        {mode === 'excel' && (
+          <ExcelUpload
+            file={excelFile}
+            inspection={excelInspection}
+            sheets={excelSheets}
+            sheet={excelSheet}
+            mapping={excelMapping}
+            metadataColumns={excelMetadataColumns}
+            onFileSelected={onExcelFileSelected}
+            onSheetChange={onExcelSheetChange}
+            onRemoveFile={onRemoveExcelFile}
+            onMappingChange={onExcelMappingChange}
+            onToggleMetadata={onToggleExcelMetadata}
+            onSubmit={onSubmitExcel}
+            busy={busy}
+          />
         )}
       </div>
 
@@ -100,7 +123,7 @@ export default function AnalysisWorkspace({
         <div id="empty-state" className="workspace-foot">
           <p>No consultation analyzed yet.</p>
           <p>
-            Paste responses or upload a CSV to begin.
+            Paste responses, upload a CSV or upload an Excel workbook to begin.
             <span> English-language prototype · Original evidence retained</span>
           </p>
         </div>

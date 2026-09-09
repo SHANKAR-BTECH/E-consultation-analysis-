@@ -53,18 +53,18 @@ export default function ControlRail({
         <button
           type="button"
           role="tab"
-          id="tab-url"
-          aria-selected={activeTab === 'url'}
-          className={`mode-tab ${activeTab === 'url' ? 'active' : ''}`}
-          onClick={() => onSelectTab('url')}
+          id="tab-excel"
+          aria-selected={activeTab === 'excel'}
+          className={`mode-tab ${activeTab === 'excel' ? 'active' : ''}`}
+          onClick={() => onSelectTab('excel')}
           disabled={busy}
         >
-          <span className="mode-icon">⌁</span>
+          <span className="mode-icon">⊟</span>
           <div className="mode-text">
-            <span className="mode-title">Public Portal URL</span>
-            <span className="mode-desc">Direct portal scraping</span>
+            <span className="mode-title">Excel Workbook Upload</span>
+            <span className="mode-desc">.xlsx with sheet & column map</span>
           </div>
-          <span className="mode-badge soon">Soon</span>
+          {activeTab === 'excel' && <span className="mode-badge">Active</span>}
         </button>
       </div>
 
@@ -105,7 +105,7 @@ export default function ControlRail({
           </div>
           <div className="telem-row">
             <span className="telem-label">File Size Limit</span>
-            <span className="telem-val">1.0 MB CSV payload</span>
+            <span className="telem-val">1.0 MB CSV · 10 MB XLSX</span>
           </div>
           <div className="telem-row">
             <span className="telem-label">Ingestion Encoding</span>

@@ -92,54 +92,6 @@
 .history-card-actions {
   margin-top: 14px;
 }
-.history-card-source {
-  margin: 0 0 6px;
-  font-size: 13.5px;
-  color: #555d67;
-}
-.history-provenance {
-  margin: 0 0 16px;
-  padding: 14px 18px;
-  background: #f6f8fa;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 6px;
-}
-.history-provenance dl {
-  display: grid;
-  grid-template-columns: minmax(140px, max-content) 1fr;
-  gap: 6px 18px;
-  margin: 0;
-}
-.history-provenance dt {
-  font-size: 12.5px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #555d67;
-  align-self: center;
-}
-.history-provenance dd {
-  margin: 0;
-  font-size: 14px;
-  color: var(--ink);
-  min-width: 0;
-}
-.history-provenance-url {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
-  background: #f1f3f5;
-  padding: 2px 6px;
-  border-radius: 4px;
-  overflow-wrap: anywhere;
-  word-break: break-all;
-}
-.history-provenance-link {
-  display: inline-block;
-  margin-left: 8px;
-  font-size: 13px;
-  padding: 4px 12px;
-  white-space: nowrap;
-}
 .btn-open-consultation {
   font-size: 14.5px;
   font-weight: 550;
@@ -188,5 +140,4 @@
   .history-card { padding: 20px 20px; }
   .history-card h2 { font-size: 20px; }
   .history-card-header { flex-direction: column; align-items: flex-start; }
-  .history-provenance dl { grid-template-columns: 1fr; }
 }

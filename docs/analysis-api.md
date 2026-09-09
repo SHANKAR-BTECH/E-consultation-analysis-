@@ -1,6 +1,6 @@
 # Consultation intelligence API — schema 2.0
 
-The existing Flask server is the only backend. Start it from the project root with `venv\Scripts\python.exe server.py` (port 5000). The consultation frontend now consumes this contract; see [frontend verification](frontend-verification.md). No extension or URL extraction is implemented.
+The existing Flask server is the only backend. Start it from the project root with `venv\Scripts\python.exe server.py` (port 5000). The consultation frontend now consumes this contract; see [frontend verification](frontend-verification.md). Input is pasted text, a CSV file or an Excel (.xlsx) workbook; no URL or browser extension extraction is implemented.
 
 ## JSON analysis
 
@@ -91,6 +91,33 @@ Send the file again with `mode=analyze` (default) and optional string form field
 Mapped roles must use different columns. Unselected unrelated columns are ignored. Empty optional CSV cells become absent/null fields. Original text—including surrounding whitespace—is retained. An absent `source` remains null; the engine does not invent source provenance from filenames.
 
 If text mapping is missing/ambiguous, HTTP 400 includes inspection information in `details`. If some text rows are invalid, HTTP 200 reports their exclusions. All-invalid mapped rows return HTTP 400. Successful CSV and JSON requests return the **same analysis object**, with no CSV-specific wrapper.
+
+## Excel workbook analysis and sheet selection
+
+`POST /analyze-file`, `multipart/form-data`, exactly one file part named `file` with a `.xlsx` filename. Workbooks are read with the bounded `openpyxl` read-only parser; macros are never executed. The first worksheet is used unless the `sheet` form field names an existing worksheet. Cells are coerced to text (`None` becomes `""`), and the first non-empty row is the header.
+
+Inspection (`mode=inspect`) validates the workbook without running ML and returns the same inspection shape as CSV plus the available sheet names:
+
+```json
+{
+  "columns": ["feedback", "submitted", "dept"],
+  "row_count": 4,
+  "suggested_mapping": {
+    "text_column": "feedback",
+    "date_column": "submitted",
+    "category_column": null
+  },
+  "candidates": {
+    "text_column": ["feedback"],
+    "date_column": ["submitted"],
+    "category_column": []
+  },
+  "requires_selection": false,
+  "sheets": ["Feedback", "Contact"]
+}
+```
+
+Sheet and column selection follow the CSV rules: header aliases auto-suggest only when exactly unique, explicit selections may override, and `sheet` selects among multiple worksheets. Analysis (`mode=analyze`) accepts the same `text_column`, optional date/category/id/source columns and `metadata_columns` form fields, and returns exactly the same analysis object as JSON/CSV. Blank cells in optional columns become absent fields. Successful Excel and JSON requests return the **same analysis object** with no Excel-specific wrapper.
 
 ## Successful analysis object
 
@@ -290,7 +317,8 @@ Limits are configured in `config.py`:
 | Combined response text characters | 1,000,000 |
 | Analysis HTTP request bytes, including multipart overhead | 6,500,000 |
 | CSV bytes | 5,000,000 |
-| CSV columns | 50 |
+| Excel (.xlsx) bytes | 10,000,000 |
+| CSV/Excel columns | 50 |
 | Metadata serialized characters per row | 2,000 |
 | Distinct phrase candidates retained | 50,000 |
 | Inference chunk size | 128 |
@@ -333,10 +361,10 @@ Integration rules:
 - Show `priority.level` together with mentions, negative ratio, sample size, and score contributions. Do not call it model confidence or verified severity.
 - Render trends/categories only when their `available` fields are true. Do not interpret missing observations as zero sentiment.
 - Do not sum overlapping topic/issue counts into a total population.
-- Handle HTTP/network errors separately from valid partial results. There is no automatic URL fallback endpoint yet.
+- Handle HTTP/network errors separately from valid partial results.
 - Calls are intended for the same origin. A separately hosted frontend requires a deliberately configured proxy/CORS policy later; broad CORS and extension permissions were not added here.
 
-The future URL adapter must return identifiable public feedback records into `analyze_batch`, with bounded extraction and provenance. No URL is fetched in this phase; consultation document bodies, menus and page navigation must not be treated as citizen responses.
+Excel workbooks flow through the same `analyze_batch` records as paste and CSV, so the response envelope, validation and model behavior are identical across all three input modes. Workbook parsing never executes macros and never treats any cell as code.
 
 ## Verification and academic limits
 

@@ -43,7 +43,7 @@
         <div class="input-tabs" role="tablist" aria-label="Response source">
           <button id="tab-paste" role="tab" aria-selected="true" aria-controls="pane-paste">Paste responses</button>
           <button id="tab-csv" role="tab" aria-selected="false" aria-controls="pane-csv" tabindex="-1">Upload CSV</button>
-          <button id="tab-url" role="tab" aria-selected="false" aria-controls="pane-url" tabindex="-1">Public URL <span class="soon">Coming soon</span></button>
+          <button id="tab-excel" role="tab" aria-selected="false" aria-controls="pane-excel" tabindex="-1">Upload Excel</button>
         </div>
         <div id="pane-paste" role="tabpanel" aria-labelledby="tab-paste">
           <div class="input-caption"><label for="paste-input">Your consultation responses</label><label class="split-control">Separate by <select id="separator"><option value="line">New line</option><option value="paragraph">Blank line</option></select></label></div>
@@ -66,7 +66,23 @@
             <div class="csv-action"><button id="analyze-csv" class="button primary">Analyze consultation <span aria-hidden="true">→</span></button></div></div>
           </div>
         </div>
-        <div id="pane-url" class="url-pane" role="tabpanel" aria-labelledby="tab-url" hidden><span class="eyebrow">Coming soon</span><h2>Public feedback, directly from its source.</h2><p>Support for selected public consultation pages is planned.<br>For now, paste responses or upload a CSV. No URL is fetched.</p><label>Public consultation URL<input type="url" placeholder="https://…" disabled></label><button id="url-use-csv" class="button secondary">Upload a CSV instead <span aria-hidden="true">→</span></button></div>
+        <div id="pane-excel" role="tabpanel" aria-labelledby="tab-excel" hidden>
+          <div class="upload-area" id="excel-drop-zone">
+            <span class="upload-symbol" aria-hidden="true">↑</span><h2>Upload an Excel workbook.</h2><p>Choose a .xlsx file, then select the sheet and feedback column.</p>
+            <label class="button secondary upload-label">Choose Excel file<input type="file" id="excel-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Choose Excel file"></label>
+            <p class="small muted">Or drop a file here. .xlsx format · <span id="excel-limit"></span> maximum</p>
+          </div>
+          <div id="excel-selected" hidden><div class="file-summary"><div><strong id="excel-file-name"></strong><p id="excel-file-description" class="small muted"></p></div><button id="remove-excel-file" class="button text-button">Remove file</button></div>
+            <div id="excel-sheet-select" hidden><label>Sheet<select id="excel-sheet"></select></label></div>
+            <div id="excel-mapping" hidden><p class="mapping-heading">Match your columns <span class="small muted">Only the response column is required.</span></p><div class="mapping-grid">
+              <label>Response text <span aria-hidden="true">*</span><select id="excel-map-text" required></select></label>
+              <label>Date<select id="excel-map-date"></select></label><label>Category / department<select id="excel-map-category"></select></label>
+              <label>Response ID<select id="excel-map-id"></select></label><label>Source<select id="excel-map-source"></select></label>
+            </div><p class="small muted">Optional columns can be left unused. Day-first dates such as 03/04/2026 mean 3 April.</p>
+            <details class="metadata-options"><summary>Additional metadata columns</summary><div id="excel-metadata-columns"></div></details>
+            <div class="csv-action"><button id="analyze-excel" class="button primary">Analyze consultation <span aria-hidden="true">→</span></button></div></div>
+          </div>
+        </div>
       </div>
       <div class="samples"><span>Try an illustrative sample</span><button data-sample="transport">Public Transport</button><button data-sample="healthcare">Health Services</button><button data-sample="housing">Housing &amp; Infrastructure</button><button data-sample="single">Single Response</button></div>
       <p id="sample-note" class="small muted" hidden></p>
@@ -112,7 +128,7 @@
         <h3>Model evaluation</h3><p>Prototype Test Accuracy: {{ ('%.2f%%' | format(metadata.accuracy * 100)) if metadata.accuracy is defined else 'Unavailable' }}</p><p>{{ metadata.get('dataset_size', 'Unavailable') }} samples in the generated prototype dataset. This controlled evaluation does not establish accuracy on real consultation responses. Confidence is not calibrated real-world accuracy.</p>
       </div></details></div></div>
     </section>
-    <section id="help" class="help-section"><h2>A little help getting started.</h2><div class="help-grid"><div><h3>Pasting responses</h3><p>Choose new lines or blank lines as the separator. Check the detected count before submitting. English-language text is supported.</p></div><div><h3>Preparing a CSV</h3><p>Use UTF-8 encoding and a header row. Select the response column after inspection. Dates and categories are optional.</p></div><div><h3>Working within the limits</h3><p id="limits-help"></p><p>URL extraction is not yet available.</p></div></div></section>
+    <section id="help" class="help-section"><h2>A little help getting started.</h2><div class="help-grid"><div><h3>Pasting responses</h3><p>Choose new lines or blank lines as the separator. Check the detected count before submitting. English-language text is supported.</p></div><div><h3>Preparing a CSV</h3><p>Use UTF-8 encoding and a header row. Select the response column after inspection. Dates and categories are optional.</p></div><div><h3>Working within the limits</h3><p id="limits-help"></p></div></div></section>
   </main>
   <footer class="site-footer"><div class="container"><span>◈ Consultation Analytics</span><p>{{ project_title }}<br>Academic prototype · Government/public-policy e-consultation</p><a href="#workspace">Back to top ↑</a></div></footer>
   <dialog id="issue-dialog" aria-labelledby="issue-title"><div class="dialog-top"><span class="eyebrow">Issue &amp; evidence</span><button id="close-issue" class="button secondary">Close</button></div><div id="issue-detail"></div></dialog>

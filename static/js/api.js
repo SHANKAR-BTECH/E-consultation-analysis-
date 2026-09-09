@@ -64,3 +64,18 @@ export async function analyzeFile(file,mapping,metadata) {
   form.append('metadata_columns',JSON.stringify(metadata));
   return validateAnalysis(await request('/analyze-file',{method:'POST',body:form}));
 }
+export async function inspectExcelFile(file, sheet='') {
+  const form = new FormData(); form.append('file',file);form.append('mode','inspect');
+  form.append('sheet',sheet);
+  const data = await request('/analyze-file',{method:'POST',body:form});
+  if (!Array.isArray(data?.columns) || !data.columns.every(c=>typeof c==='string') || !Number.isInteger(data.row_count) || !object(data.suggested_mapping))
+    throw new APIError('The service could not provide usable columns. Please check the file.');
+  return data;
+}
+export async function analyzeExcelFile(file,mapping,metadata,sheet='') {
+  const form = new FormData();form.append('file',file);form.append('mode','analyze');
+  Object.entries(mapping).forEach(([key,value])=>form.append(key,value));
+  form.append('metadata_columns',JSON.stringify(metadata));
+  if(sheet)form.append('sheet',sheet);
+  return validateAnalysis(await request('/analyze-file',{method:'POST',body:form}));
+}

@@ -20,12 +20,18 @@ export default function HelpSection() {
           </p>
         </div>
         <div>
+          <h3>Uploading an Excel workbook</h3>
+          <p>
+            Use a .xlsx file with a header row. Select the sheet and then the feedback column
+            before analyzing.
+          </p>
+        </div>
+        <div>
           <h3>Working within the limits</h3>
           <p id="limits-help">
             Up to 2,000 responses per analysis, 4,000 characters per response, and 500,000 combined
             characters.
           </p>
-          <p>URL extraction is not yet available.</p>
         </div>
       </div>
     </section>
