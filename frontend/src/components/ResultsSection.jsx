@@ -216,8 +216,8 @@ export default function ResultsSection({
   ];
 
   return (
-    <section id="results" aria-labelledby="results-title">
-      {/* ── Analysis Navigation ── */}
+    <>
+      {/* ── Persistent Analysis Navigation ── */}
       {!persisted && (onHome || onEditInput) && (
         <nav className="analysis-nav" aria-label="Analysis navigation">
           {onHome && (
@@ -241,6 +241,7 @@ export default function ResultsSection({
         </nav>
       )}
 
+    <section id="results" aria-labelledby="results-title">
       {/* ── Results Header ── */}
       <div className="results-heading">
         <div>
@@ -395,5 +396,6 @@ export default function ResultsSection({
         onFilterResponses={handleFilterByContext}
       />
     </section>
+    </>
   );
 }
