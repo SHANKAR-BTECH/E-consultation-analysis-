@@ -33,7 +33,9 @@ class Database:
 
 
 def init_app(app):
-    """Optional future Flask bootstrap; not called by server.py in Phase 5B."""
+    """Enable storage only with an explicit URL; never connect or migrate here."""
+    if not app.config.get('DATABASE_URL'):
+        return None
     db = Database(app.config.get('DATABASE_URL'))
     app.extensions['consultation_database'] = db
     return db

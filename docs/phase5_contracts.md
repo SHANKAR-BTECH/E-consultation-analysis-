@@ -1,5 +1,127 @@
 # Phase 5A — Contract characterization and persistence semantics
 
+## Phase 5D implementation update (9 September 2026)
+
+This update supersedes the historical statements below that Flask never imports
+or uses persistence. `DATABASE_URL` opts Flask into PostgreSQL persistence for
+successful `/analyze` and `/analyze-file` requests. Without it, the original
+stateless mode remains available. Set it before starting Flask; configuration is
+read at process startup. No database is created automatically and migrations do
+not run during application startup or requests.
+
+Required local configuration:
+
+```text
+DATABASE_URL=postgresql+psycopg://<role>@localhost:5432/e_consultation
+```
+
+Replace `<role>` with the existing PostgreSQL login. If authentication requires a
+password, supply it through
+`%APPDATA%\postgresql\pgpass.conf` (entry format
+`localhost:5432:e_consultation:<role>:<password>`), or use a URL-encoded password
+in `DATABASE_URL`. `PGPASSFILE` is optional if the password file is elsewhere.
+Do not paste credentials into chat, commit them, or print the URL. pgAdmin saved
+passwords do not automatically configure Flask. A PowerShell `$env:` setting in
+another terminal is not inherited by an already running Codex or Flask process.
+
+From a shell with the variables configured:
+
+```powershell
+.\venv\Scripts\python.exe -m alembic upgrade head
+.\venv\Scripts\python.exe -m alembic current
+.\venv\Scripts\python.exe -m unittest persistence.test_foundation persistence.test_service -v
+$env:RUN_POSTGRES_INTEGRATION = '1'
+.\venv\Scripts\python.exe -m unittest persistence.test_postgresql -v
+.\venv\Scripts\python.exe server.py
+```
+
+Successful responses retain the exact schema-2.0 body, with no added IDs or
+wrapper. `/health` remains model-only; `/predict` is unchanged. CSV inspection
+does not persist. Existing validation and inference errors occur before storage
+acceptance and create no records. Inference runs outside database transactions.
+After computation succeeds, one short transaction creates the consultation,
+sealed import and ordered snapshot, RUNNING analysis run, audit entries and
+internal acceptance receipt. Another transaction completes all evaluations,
+predictions, issue/topic findings, evidence memberships and result JSON together.
+HTTP 200 is returned only after completion commits in persistence-enabled mode.
+
+Each request creates a new consultation and a new internal operation key. Repeated
+payloads and CSV uploads remain distinct deliberate analyses. These legacy
+routes do not introduce client idempotency headers, retry APIs, authentication,
+saved-result retrieval or background execution. Receipts are internal acceptance
+records, not assertions that a run has completed. The run carries the final status.
+
+JSON request bytes and exact logical response records are retained. CSV retains
+original bytes, filename, parsed rows including unselected columns, header order,
+encoding and explicit mapping options (including omitted versus empty options).
+The sealed snapshot retains the effective mapped inputs. Every duplicate/invalid
+occurrence receives its own response identity and original position. Manifests
+record hashes of actual cached model/vectorizer objects, on-disk artifacts and
+analysis/rule source files, plus runtime package versions; on-disk hashes are
+separate from loaded-object hashes because the inference cache survives file changes.
+
+Storage/manifest failures return 503 with the existing `{error,message}` envelope
+and a safe message saying the analysis could not be saved. No driver exception,
+SQL parameters or credentials are logged. After a failed completion transaction
+rolls back, a separate transaction attempts to mark the accepted run FAILED.
+If the database is unreachable or commit acknowledgement is lost, this status
+update can also fail: inspect the durable run status before retrying. There is
+no automatic retry/recovery worker; an interrupted request can leave a RUNNING
+record with no result graph. Completed records cannot contain partial results.
+
+In pgAdmin, select **e_consultation**, refresh **Schemas → public → Tables**, and
+use Query Tool to inspect the migration and recent runs:
+
+```sql
+SELECT version_num FROM alembic_version;
+SELECT id, consultation_id, status, created_at,
+       result_json->>'total_received' AS total_received,
+       result_json->>'total_responses' AS accepted
+FROM analysis_runs ORDER BY created_at DESC LIMIT 10;
+SELECT r.id AS run_id, p.row_index, p.sentiment, p.confidence
+FROM analysis_runs r JOIN sentiment_predictions p ON p.run_id = r.id
+ORDER BY r.created_at DESC, p.row_index LIMIT 30;
+SELECT table_name FROM information_schema.tables
+WHERE table_schema = 'public' ORDER BY table_name;
+```
+
+The real PostgreSQL suite requires `RUN_POSTGRES_INTEGRATION=1`, refuses any
+database other than local `e_consultation`, and retains its labeled fixtures for
+pgAdmin inspection. It never creates/drops databases or deletes existing records.
+It verifies real JSON/CSV requests, result replay, duplicate identity and ordering,
+rejections, provenance, predictions, findings, evidence and operation receipts,
+and rollback of an intentionally incomplete result graph.
+
+Verification completed on PostgreSQL **18.6**, existing local database
+**e_consultation**, using the operator-supplied passwordless URL with role
+`postgres`. `DATABASE_URL` was saved and verified in the Windows user environment;
+restart the terminal/application to inherit it, or set `$env:DATABASE_URL` in the
+current PowerShell session. No password was printed or committed.
+
+- Existing migration `0001` applied successfully without schema changes. All 12
+  expected persistence tables plus `alembic_version` were verified from PostgreSQL.
+- All **24 focused persistence tests**, **77 backend tests** (including 5 new
+  Flask boundary tests), and **2 real PostgreSQL integration tests** passed.
+  The complete backend suite also passed with `DATABASE_URL` enabled and includes
+  real Flask/Streamlit startup and isolated temporary training regression checks.
+- `/health`, `/predict`, `/analyze` and `/analyze-file` passed. Stored schema-2.0
+  results matched the existing analysis service. CSV provenance and ordered
+  duplicate response identities were verified from database queries.
+- An intentionally incomplete completion failed the deferred database checks;
+  no partial evaluations, predictions, findings or evidence survived rollback,
+  and a separate transaction recorded the fixture run as FAILED.
+- Retained completed JSON run: `1da655ba-ca0c-4a52-8b40-e0047a1bb075`
+  (3 evaluations, 2 predictions, 8 findings, 16 evidence memberships, 1 receipt).
+- Retained completed CSV run: `9f23b4d6-bc66-42d4-b5b4-d1336b441d75`
+  (2 evaluations, 2 predictions, 8 findings, 16 evidence memberships, 1 receipt).
+  These rows remain available for pgAdmin inspection. Backend contract tests
+  with persistence enabled also leave their valid analysis fixtures in this database.
+- Active model SHA-256 remains
+  `497888DCC4801A5D1DE5F48FC2B5160C05E38DB6AA95D4261CF42963AB911927`;
+  active vectorizer SHA-256 remains
+  `7E4F15FED3E6A3A104CB8D42E7BF73AC8F45EF7859F4436288ECD4988377FEE4`.
+  No ML artifacts/pipeline, React, authentication, workers or schema were changed.
+
 Date: 8 September 2026. Baseline: `6b42f398377f72235789907514e26dca79bc4eef`.
 
 **Status:** existing behavior characterized; future persistence semantics specified, not implemented. No PostgreSQL, SQL, migration, authentication, production-code, frontend or active-model changes. Sections A–B describe current behavior; C–J specify the proposed future design, not existing API fields or capabilities.

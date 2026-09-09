@@ -1,4 +1,6 @@
 """Existing Flask application, backed by the shared inference service."""
+import io
+import os
 from flask import Flask, jsonify, render_template, request
 from werkzeug.exceptions import BadRequest, RequestEntityTooLarge, UnsupportedMediaType
 
@@ -8,12 +10,16 @@ from evaluation_info import load_evaluation
 from model_service import get_service, validate_feedback, InvalidFeedback, ModelUnavailable
 from analysis_service import analyze_batch, AnalysisError
 from csv_ingestion import parse_csv, inspect_columns, map_csv
+from persistence.database import init_app
+from persistence.flask_service import model_manifest, persist_analysis, PersistenceFailure
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_ANALYSIS_REQUEST_BYTES
 # This local application is edited between runs. Never retain an obsolete
 # compiled page while Flask serves updated CSS/JS from disk.
 app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.config['DATABASE_URL'] = os.environ.get('DATABASE_URL')
+init_app(app)
 
 
 @app.after_request
@@ -48,9 +54,21 @@ def analysis_error(exc):
     return jsonify(body), 400
 
 
-def run_analysis(responses):
+def run_analysis(responses, **provenance):
     try:
-        return jsonify(analyze_batch(responses))
+        result = analyze_batch(responses)
+        database = app.extensions.get('consultation_database')
+        if database is not None:
+            try:
+                manifest = model_manifest(get_service())
+                persist_analysis(database, responses, result, manifest, **provenance)
+            except PersistenceFailure:
+                raise
+            except Exception:
+                raise PersistenceFailure('Analysis could not be saved. Check the database and retry.') from None
+        return jsonify(result)
+    except PersistenceFailure as exc:
+        return error(str(exc), 503)
     except AnalysisError:
         raise
     except ModelUnavailable as exc:
@@ -68,7 +86,8 @@ def analyze():
         return error("Request must contain a valid JSON object with a responses array.")
     if not isinstance(data, dict) or "responses" not in data:
         return error("Request must contain a JSON object with a responses array.")
-    return run_analysis(data["responses"])
+    return run_analysis(data["responses"], source_type='json',
+                        raw_bytes=request.get_data(), source_metadata={'endpoint': '/analyze'})
 
 
 @app.route("/analyze-file", methods=["POST"])
@@ -84,10 +103,17 @@ def analyze_file():
         mode = request.form.get("mode", "analyze")
         if mode not in ("inspect", "analyze"):
             raise AnalysisError("mode must be inspect or analyze.")
-        columns, rows = parse_csv(upload.stream)
+        raw_bytes = upload.stream.read(MAX_CSV_BYTES + 1)
+        columns, rows = parse_csv(io.BytesIO(raw_bytes))
         if mode == "inspect":
             return jsonify(inspect_columns(columns, rows))
-        return run_analysis(map_csv(columns, rows, request.form))
+        return run_analysis(map_csv(columns, rows, request.form), source_type='csv',
+                            filename=upload.filename, raw_bytes=raw_bytes, raw_records=rows,
+                            mapping={key: request.form[key] for key in (
+                                'text_column', 'date_column', 'category_column',
+                                'id_column', 'source_column', 'metadata_columns') if key in request.form},
+                            source_metadata={'endpoint': '/analyze-file', 'headers': columns,
+                                             'encoding': 'utf-8-sig'})
     except BadRequest:
         return error("Malformed multipart CSV request.")
 

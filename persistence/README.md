@@ -1,5 +1,10 @@
 # Phase 5B persistence foundation
 
+Phase 5D now connects Flask analysis routes when `DATABASE_URL` is configured.
+See [the current setup and verification contract](../docs/phase5_contracts.md#phase-5d-implementation-update-9-september-2026)
+for local `e_consultation` configuration. The Phase 5B/5C descriptions and
+verification limitations below are historical.
+
 Opt-in PostgreSQL storage using SQLAlchemy Core 2, psycopg 3 and Alembic.
 Existing Flask routes, health checks, analysis, ML and React do not import or
 initialize this package. Installing dependencies does not enable persistence.

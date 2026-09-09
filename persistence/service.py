@@ -1,4 +1,4 @@
-"""Transaction-scoped persistence commands for future trusted backend callers.
+"""Transaction-scoped persistence commands for trusted backend callers.
 
 Construct inside ``with database.transaction() as session``. No inference, HTTP,
 implicit commits, or database initialization happens here.
