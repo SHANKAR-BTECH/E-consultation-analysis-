@@ -31,12 +31,20 @@ function Notice({ state, loading, onRetry }) {
 
 // Pure view also makes each remote-data state testable without a browser store.
 export function HistoryPanel({ list, detail, saved, selectedId, onSelect, onSelectRun,
-  onBack, onRetry, onNewAnalysis, onOpenIssue }) {
+  onBack, onRetry, onNewAnalysis, onOpenIssue, isRefreshing = false }) {
   return <section id="consultation-history" aria-labelledby="history-title">
     <div className="results-heading">
       <div><p className="eyebrow">Saved records</p><h1 id="history-title">Previous Consultations</h1>
         <p className="muted">Open a saved consultation and review its analysis.</p></div>
-      <button className="button secondary" onClick={onRetry}>Refresh history</button>
+      <button
+        type="button"
+        className="button secondary btn-refresh-history"
+        onClick={onRetry}
+        disabled={isRefreshing}
+        aria-busy={isRefreshing}
+      >
+        {isRefreshing ? 'Refreshing…' : 'Refresh History'}
+      </button>
     </div>
     {!selectedId ? <>
       <Notice state={list} loading="Loading consultations…" onRetry={onRetry} />
@@ -92,6 +100,8 @@ export default function ConsultationHistory({ onNewAnalysis }) {
   const [runId, setRunId] = useState(null);
   const [revision, setRevision] = useState(0);
   const [dialog, setDialog] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const list = useResource(listConsultations, true, revision);
   const loadDetail = useCallback(() => getConsultation(selectedId), [selectedId]);
   const detail = useResource(loadDetail, !!selectedId, revision);
@@ -100,11 +110,28 @@ export default function ConsultationHistory({ onNewAnalysis }) {
   const saved = useResource(loadRun, !!selectedId && !!activeRunId, revision);
   const select = (id) => { setSelectedId(id); setRunId(null); setDialog(null); };
 
+  useEffect(() => {
+    if (!isRefreshing) return;
+    const isBusy = (!selectedId && list.status === 'loading') ||
+      (!!selectedId && (detail.status === 'loading' || (activeRunId && saved.status === 'loading')));
+    if (!isBusy) {
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, selectedId, activeRunId, list.status, detail.status, saved.status]);
+
+  const handleRetry = useCallback(() => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setRevision((value) => value + 1);
+    setDialog(null);
+  }, [isRefreshing]);
+
   return <>
     <HistoryPanel list={list} detail={detail} saved={saved} selectedId={selectedId}
       onSelect={select} onBack={() => select(null)} onSelectRun={(id) => { setRunId(id); setDialog(null); }}
-      onRetry={() => { setRevision((value) => value + 1); setDialog(null); }} onNewAnalysis={onNewAnalysis}
-      onOpenIssue={(index, explore) => setDialog({ index, explore })} />
+      onRetry={handleRetry} onNewAnalysis={onNewAnalysis}
+      onOpenIssue={(index, explore) => setDialog({ index, explore })}
+      isRefreshing={isRefreshing} />
     <IssueDialog isOpen={!!dialog} issue={saved.data?.result?.issues?.[dialog?.index]}
       issueIndex={dialog?.index} totalResponses={saved.data?.result?.total_responses || 0}
       onClose={() => setDialog(null)} onExploreIssue={(index) => dialog?.explore(index)} />

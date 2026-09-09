@@ -50,40 +50,59 @@ export default function CitizenExplorer({
   return (
     <section className="dossier-card citizen-explorer-card" id="explorer" aria-labelledby="explorer-title">
       <div className="card-top-bar">
-        <span className="card-kicker-badge">SOURCE EVIDENCE AUDIT</span>
-        <span className="card-caption-tag">VERBATIM CITIZEN FEEDBACK</span>
+        <div className="card-kicker-badge">SOURCE EVIDENCE</div>
+        <div className="card-caption-tag">AUDITABLE • VERBATIM CITIZEN FEEDBACK</div>
       </div>
 
       <div className="explorer-header-block">
         <h2 id="explorer-title" className="section-title">Citizen Feedback Explorer</h2>
         <p className="section-sub">
-          Search, filter, and inspect individual responses verbatim. Quick filters allow administrators to isolate complaints, requests, and positive feedback immediately.
+          Search, filter, and inspect individual responses verbatim.
         </p>
       </div>
 
       {/* Quick Filter Bar */}
-      <div className="quick-filters-bar" role="tablist" aria-label="Feedback type quick filters">
-        {quickFilterOptions.map((opt) => {
-          const isActive = (filters.quickFilter || 'all') === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`quick-filter-pill ${isActive ? 'active' : ''}`}
-              onClick={() => onUpdateFilter('quickFilter', opt.id)}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
+      <div className="quick-filters-container" role="tablist" aria-label="Feedback type quick filters">
+        <div className="quick-filters-row">
+          {quickFilterOptions.slice(0, 4).map((opt) => {
+            const isActive = (filters.quickFilter || 'all') === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`quick-filter-pill ${isActive ? 'active' : ''}`}
+                onClick={() => onUpdateFilter('quickFilter', opt.id)}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="quick-filters-row">
+          {quickFilterOptions.slice(4).map((opt) => {
+            const isActive = (filters.quickFilter || 'all') === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`quick-filter-pill ${isActive ? 'active' : ''}`}
+                onClick={() => onUpdateFilter('quickFilter', opt.id)}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Secondary Search & Dropdown Filter Bar */}
       <div className="explorer-filter-bar">
         <div className="filter-group search-field">
-          <label htmlFor="search-input" className="sr-only">Search responses</label>
+          <label htmlFor="search-input" className="filter-label">Search words or phrases:</label>
           <input
             type="search"
             id="search-input"
@@ -94,7 +113,7 @@ export default function CitizenExplorer({
           />
         </div>
 
-        <div className="filter-group">
+        <div className="filter-group select-group">
           <label htmlFor="filter-sentiment" className="filter-label">Sentiment:</label>
           <select
             id="filter-sentiment"
@@ -111,27 +130,8 @@ export default function CitizenExplorer({
           </select>
         </div>
 
-        {categoriesAvailable && (
-          <div className="filter-group">
-            <label htmlFor="filter-category" className="filter-label">Category:</label>
-            <select
-              id="filter-category"
-              className="select-filter"
-              value={filters.category}
-              onChange={(e) => onUpdateFilter('category', e.target.value)}
-            >
-              <option value="">All Categories</option>
-              {result.categories.groups.map((g) => (
-                <option key={g.category} value={g.category}>
-                  {g.category} ({number(g.total_responses)})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
         {topicsAvailable && (
-          <div className="filter-group">
+          <div className="filter-group select-group">
             <label htmlFor="filter-topic" className="filter-label">Topic:</label>
             <select
               id="filter-topic"
@@ -149,14 +149,35 @@ export default function CitizenExplorer({
           </div>
         )}
 
-        <button
-          type="button"
-          className="button secondary sm btn-reset-filters"
-          onClick={onResetFilters}
-          title="Clear all search parameters"
-        >
-          Reset Filters
-        </button>
+        {categoriesAvailable && (
+          <div className="filter-group select-group">
+            <label htmlFor="filter-category" className="filter-label">Category:</label>
+            <select
+              id="filter-category"
+              className="select-filter"
+              value={filters.category}
+              onChange={(e) => onUpdateFilter('category', e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {result.categories.groups.map((g) => (
+                <option key={g.category} value={g.category}>
+                  {g.category} ({number(g.total_responses)})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="filter-group action-group">
+          <button
+            type="button"
+            className="button secondary sm btn-reset-filters"
+            onClick={onResetFilters}
+            title="Clear all search parameters"
+          >
+            Reset Filters
+          </button>
+        </div>
       </div>
 
       {filters.issueLabel && (
