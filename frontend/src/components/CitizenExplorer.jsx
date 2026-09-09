@@ -17,13 +17,13 @@ export default function CitizenExplorer({
   const issues = result?.issues || [];
 
   const quickFilterOptions = [
-    { id: 'all', label: 'All' },
-    { id: 'positive', label: 'Positive' },
-    { id: 'negative', label: 'Negative' },
-    { id: 'mixed_neutral', label: 'Mixed / Neutral' },
-    { id: 'requests', label: 'Requests' },
-    { id: 'problems', label: 'Problems' },
-    { id: 'improvements', label: 'Improvements' }
+    { id: 'all', label: 'All', tone: 'neutral' },
+    { id: 'positive', label: 'Positive', tone: 'positive' },
+    { id: 'negative', label: 'Negative', tone: 'negative' },
+    { id: 'mixed_neutral', label: 'Mixed / Neutral', tone: 'mixed' },
+    { id: 'requests', label: 'Requests', tone: 'requests' },
+    { id: 'problems', label: 'Problems', tone: 'problems' },
+    { id: 'improvements', label: 'Improvements', tone: 'improvements' }
   ];
 
   // Helper to map response to related issue if any
@@ -72,7 +72,7 @@ export default function CitizenExplorer({
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                className={`quick-filter-pill ${isActive ? 'active' : ''}`}
+                className={`quick-filter-pill pill-${opt.tone} ${isActive ? 'active' : ''}`}
                 onClick={() => onUpdateFilter('quickFilter', opt.id)}
               >
                 {opt.label}
@@ -89,7 +89,7 @@ export default function CitizenExplorer({
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                className={`quick-filter-pill ${isActive ? 'active' : ''}`}
+                className={`quick-filter-pill pill-${opt.tone} ${isActive ? 'active' : ''}`}
                 onClick={() => onUpdateFilter('quickFilter', opt.id)}
               >
                 {opt.label}

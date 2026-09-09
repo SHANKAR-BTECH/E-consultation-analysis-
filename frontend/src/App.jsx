@@ -258,8 +258,23 @@ export default function App() {
     if (busy) return;
     setView('workspace');
     setError(null);
-    const ws = document.getElementById('workspace');
-    if (ws) ws.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setDialogOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNewAnalysis = () => {
+    if (busy) return;
+    handleClearText();
+    handleRemoveFile();
+    setAnalysisResult(null);
+    setView('workspace');
+    setError(null);
+    setDialogOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleScrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleOpenIssue = (index, onExplore) => {
@@ -337,7 +352,7 @@ export default function App() {
 
         {busy && <ProcessingSection />}
 
-        {view === 'history' && !busy && <ConsultationHistory onNewAnalysis={handleShowWorkspace} />}
+        {view === 'history' && !busy && <ConsultationHistory onNewAnalysis={handleNewAnalysis} />}
 
         {error && <ActionError error={error} onDismiss={() => setError(null)} />}
 
@@ -346,7 +361,8 @@ export default function App() {
             data={analysisResult}
             source={source}
             onEditInput={handleShowWorkspace}
-            onHome={() => { if (!busy) { setView('history'); setError(null); setDialogOpen(false); } }}
+            onNewAnalysis={handleNewAnalysis}
+            onHome={handleShowWorkspace}
             onOpenIssue={handleOpenIssue}
           />
         )}
@@ -355,7 +371,7 @@ export default function App() {
         <HelpSection />
       </main>
 
-      <Footer onBackToTop={handleShowWorkspace} />
+      <Footer onBackToTop={handleScrollToTop} />
 
       <IssueDialog
         isOpen={dialogOpen}

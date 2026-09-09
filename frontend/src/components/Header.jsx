@@ -34,6 +34,7 @@ export default function Header({ systemReady, systemError, onReset, onHistory, v
           <a
             href="#workspace"
             id="nav-analysis"
+            className="nav-link"
             aria-current={view !== 'history' ? 'page' : undefined}
             onClick={(e) => {
               e.preventDefault();
@@ -42,10 +43,46 @@ export default function Header({ systemReady, systemError, onReset, onHistory, v
           >
             Analysis
           </a>
-          <a href="#consultation-history" aria-current={view === 'history' ? 'page' : undefined}
-            onClick={(event) => { event.preventDefault(); onHistory(); }}>Previous Consultations</a>
-          <a href="#about">About</a>
-          <a href="#help">Help</a>
+          <a
+            href="#consultation-history"
+            id="nav-history"
+            className="nav-link"
+            aria-current={view === 'history' ? 'page' : undefined}
+            onClick={(event) => {
+              event.preventDefault();
+              onHistory();
+            }}
+          >
+            Previous Consultations
+          </a>
+          <a
+            href="#about"
+            id="nav-about"
+            className="nav-link"
+            onClick={(e) => {
+              const el = document.getElementById('about');
+              if (el) {
+                e.preventDefault();
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+          >
+            About
+          </a>
+          <a
+            href="#help"
+            id="nav-help"
+            className="nav-link"
+            onClick={(e) => {
+              const el = document.getElementById('help');
+              if (el) {
+                e.preventDefault();
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+          >
+            Help
+          </a>
         </nav>
         <span id="system-status" className={`system-status ${statusClass}`} role="status">
           <i></i>

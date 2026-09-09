@@ -50,19 +50,43 @@ export function HistoryPanel({ list, detail, saved, selectedId, onSelect, onSele
       <Notice state={list} loading="Loading consultations…" onRetry={onRetry} />
       {list.status === 'success' && (list.data.length === 0
         ? <p className="notice" role="status">No saved consultations yet. Complete an analysis to create one.</p>
-        : <div className="history-list">{list.data.map((item) => <article className="report-section history-card" key={item.id}>
-          <h2>{item.title}</h2>
-          <p className="muted">{timestamp(item.created_at)} · {item.latest_run?.response_count ?? 0} responses · {item.latest_run?.status ?? 'NO RUNS'}</p>
-          <p className="history-identifier">Consultation ID: {item.id}</p>
-          <button className="button secondary" onClick={() => onSelect(item.id)} aria-label={`Open consultation ${item.id}`}>Open consultation</button>
-        </article>)}</div>)}
+        : <div className="history-list">{list.data.map((item) => (
+          <article className="report-section history-card" key={item.id}>
+            <div className="history-card-header">
+              <h2>{item.title}</h2>
+              <span className={`status-badge status-${(item.latest_run?.status || 'no-runs').toLowerCase().replace('_', '-')}`}>
+                {item.latest_run?.status ?? 'NO RUNS'}
+              </span>
+            </div>
+            <p className="muted history-card-meta">
+              <span>{timestamp(item.created_at)}</span>
+              <span className="meta-dot">·</span>
+              <span><strong>{item.latest_run?.response_count ?? 0} responses</strong></span>
+              <span className="meta-dot">·</span>
+              <span className="meta-status">{item.latest_run?.status ?? 'NO RUNS'}</span>
+            </p>
+            <p className="history-identifier">Consultation ID: <code>{item.id}</code></p>
+            <div className="history-card-actions">
+              <button
+                type="button"
+                className="button secondary btn-open-consultation"
+                onClick={() => onSelect(item.id)}
+                aria-label={`Open consultation ${item.id}`}
+              >
+                Open consultation →
+              </button>
+            </div>
+          </article>
+        ))}</div>)}
     </> : <>
-      <button className="button secondary" onClick={onBack}>Back to consultations</button>
+      <button type="button" className="button secondary btn-back-consultations" onClick={onBack}>
+        ← Back to consultations
+      </button>
       <Notice state={detail} loading="Loading consultation…" onRetry={onRetry} />
       {detail.status === 'success' && <>
         <div className="report-section history-detail">
           <h2>{detail.data.title}</h2>
-          <p className="history-identifier">Consultation ID: {detail.data.id}</p>
+          <p className="history-identifier">Consultation ID: <code>{detail.data.id}</code></p>
           <p className="muted">{timestamp(detail.data.created_at)} · {detail.data.status}</p>
           {detail.data.runs.length === 0 ? <p role="status">No analysis runs have been saved for this consultation.</p>
             : <><label htmlFor="history-run">Analysis run</label>
@@ -87,7 +111,7 @@ export function HistoryPanel({ list, detail, saved, selectedId, onSelect, onSele
             </p>}
             {saved.data.run.status === 'COMPLETED' && <ResultsSection key={saved.data.run.id}
               data={saved.data.result} source={`Saved consultation ${detail.data.id}`} persisted
-              onEditInput={onNewAnalysis} onOpenIssue={onOpenIssue} />}
+              onEditInput={onNewAnalysis} onNewAnalysis={onNewAnalysis} onHome={onNewAnalysis} onOpenIssue={onOpenIssue} />}
           </>}
         </>}
       </>}
@@ -115,7 +139,10 @@ export default function ConsultationHistory({ onNewAnalysis }) {
     const isBusy = (!selectedId && list.status === 'loading') ||
       (!!selectedId && (detail.status === 'loading' || (activeRunId && saved.status === 'loading')));
     if (!isBusy) {
-      setIsRefreshing(false);
+      const timer = setTimeout(() => {
+        setIsRefreshing(false);
+      }, 350);
+      return () => clearTimeout(timer);
     }
   }, [isRefreshing, selectedId, activeRunId, list.status, detail.status, saved.status]);
 

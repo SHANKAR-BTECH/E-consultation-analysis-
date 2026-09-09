@@ -39,6 +39,7 @@ export default function ResultsSection({
   data,
   source,
   onEditInput,
+  onNewAnalysis,
   onHome,
   onOpenIssue,
   persisted = false
@@ -218,22 +219,24 @@ export default function ResultsSection({
   return (
     <>
       {/* ── Persistent Analysis Navigation ── */}
-      {!persisted && (onHome || onEditInput) && (
+      {(onHome || onNewAnalysis || onEditInput) && (
         <nav className="analysis-nav" aria-label="Analysis navigation">
           {onHome && (
             <button
               type="button"
               className="analysis-nav-link"
               onClick={onHome}
+              title="Return to main analysis screen"
             >
               <span aria-hidden="true">←</span> Home
             </button>
           )}
-          {onEditInput && (
+          {(onNewAnalysis || onEditInput) && (
             <button
               type="button"
               className="analysis-nav-link"
-              onClick={onEditInput}
+              onClick={onNewAnalysis || onEditInput}
+              title="Start a new consultation analysis"
             >
               <span aria-hidden="true">+</span> New analysis
             </button>
