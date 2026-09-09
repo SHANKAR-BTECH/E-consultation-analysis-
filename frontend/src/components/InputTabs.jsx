@@ -31,7 +31,7 @@ export default function InputTabs({ mode, onSelectTab, busy }) {
         tabIndex={mode === 'url' ? 0 : -1}
         onClick={() => !busy && onSelectTab('url')}
       >
-        Public URL <span className="soon">Coming soon</span>
+        Public URL
       </button>
     </div>
   );
