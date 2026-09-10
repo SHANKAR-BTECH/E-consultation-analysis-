@@ -46,3 +46,18 @@ def get_consultation(consultation_id):
 @history_api.get('/<consultation_id>/runs/<run_id>')
 def get_run(consultation_id, run_id):
     return read(lambda service, identity, run: service.get_run(identity, run), consultation_id, run_id)
+
+
+@history_api.delete('')
+@history_api.delete('/history')
+def clear_history():
+    database = current_app.extensions.get('consultation_database')
+    if database is None:
+        return jsonify(success=False, error='Consultation history is unavailable.', message='Consultation history is unavailable.'), 503
+    try:
+        with database.transaction() as connection:
+            deleted_count = PersistenceService(connection).clear_all_consultations()
+        return jsonify(success=True, deleted_consultations=deleted_count), 200
+    except Exception as ex:
+        current_app.logger.error('Failed to clear consultation history: %s', ex)
+        return jsonify(success=False, error='Failed to clear consultation history.', message='Could not clear consultation history. Please try again.'), 500

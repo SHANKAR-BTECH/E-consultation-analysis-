@@ -8,6 +8,9 @@ export default function PasteResponses({
   onSeparatorChange,
   responseCount,
   characterCount,
+  domain = 'Transport',
+  domainRelevance = null,
+  onSwitchDomain,
   onClear,
   onSubmit,
   busy
@@ -15,7 +18,7 @@ export default function PasteResponses({
   const handleKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
-      if (!busy && responseCount > 0) {
+      if (!busy && responseCount > 0 && !domainRelevance?.isClearlyUnrelated) {
         onSubmit();
       }
     }
@@ -48,6 +51,58 @@ export default function PasteResponses({
         onKeyDown={handleKeyDown}
         disabled={busy}
       ></textarea>
+
+      {/* Domain Relevance Alert / Notice */}
+      {domainRelevance?.isClearlyUnrelated && (
+        <div className="domain-mismatch-banner" id="domain-mismatch-alert" role="alert">
+          <div className="mismatch-icon" aria-hidden="true">⚠️</div>
+          <div className="mismatch-content">
+            <div className="mismatch-title">These responses do not appear to match the selected {domain} consultation domain.</div>
+            <p>
+              Selected domain: <strong>{domain}</strong>
+              <br />
+              Detected feedback appears unrelated to this domain{domainRelevance.suggestedDomain ? ` and predominantly consistent with ${domainRelevance.suggestedDomain}` : ''}.
+            </p>
+            <div className="mismatch-actions">
+              {domainRelevance.suggestedDomain && onSwitchDomain && (
+                <button
+                  type="button"
+                  className="button primary sm"
+                  id="btn-switch-domain"
+                  onClick={() => onSwitchDomain(domainRelevance.suggestedDomain)}
+                >
+                  Change domain to {domainRelevance.suggestedDomain}
+                </button>
+              )}
+              {onClear && (
+                <button
+                  type="button"
+                  className="button secondary sm"
+                  id="btn-replace-files"
+                  onClick={onClear}
+                >
+                  Clear responses
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!domainRelevance?.isClearlyUnrelated && domainRelevance?.status === 'mixed' && (
+        <div className="domain-notice-banner" id="domain-mixed-alert" role="status">
+          <span className="notice-icon" aria-hidden="true">ℹ️</span>
+          <span>{domainRelevance.message || `Most feedback appears relevant to ${domain}, but some responses may belong to a different consultation domain.`}</span>
+        </div>
+      )}
+
+      {!domainRelevance?.isClearlyUnrelated && domainRelevance?.status === 'ambiguous' && (
+        <div className="domain-notice-banner subtle" id="domain-ambiguous-alert" role="status">
+          <span className="notice-icon" aria-hidden="true">ℹ️</span>
+          <span>Some feedback could not be confidently matched to the {domain} domain, but analysis is permitted.</span>
+        </div>
+      )}
+
       <div className="input-footer">
         <div>
           <p id="counters" aria-live="polite">
@@ -76,7 +131,7 @@ export default function PasteResponses({
             id="analyze-paste"
             className="button primary"
             onClick={onSubmit}
-            disabled={busy || responseCount === 0}
+            disabled={busy || responseCount === 0 || domainRelevance?.isClearlyUnrelated}
           >
             Analyze consultation <span aria-hidden="true">→</span>
           </button>

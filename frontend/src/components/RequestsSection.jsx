@@ -38,7 +38,9 @@ export default function RequestsSection({ requests = [], onFilterResponses }) {
               </div>
 
               <div className="request-quote-block">
-                <span className="field-label">REPRESENTATIVE QUOTE:</span>
+                <span className="field-label">
+                  {req.count === 1 ? 'REPRESENTATIVE CITIZEN RESPONSE:' : 'REPRESENTATIVE QUOTE:'}
+                </span>
                 <blockquote className="request-quote-text">
                   "{req.representativeQuote || req.representativeEvidence}"
                 </blockquote>

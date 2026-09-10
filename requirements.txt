@@ -1,10 +1,6 @@
-pandas
-numpy
+flask>=3.1
 scikit-learn
 joblib
-streamlit
-matplotlib
-seaborn
-flask>=3.1
+numpy
 pypdf>=4,<6
 openpyxl>=3.1,<4

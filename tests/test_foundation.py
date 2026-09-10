@@ -147,7 +147,10 @@ class FoundationTests(unittest.TestCase):
             self.assertIn(EXAMPLES["positive"], target.read_text())
 
     def test_streamlit_state_and_prediction(self):
-        from streamlit.testing.v1 import AppTest
+        try:
+            from streamlit.testing.v1 import AppTest
+        except ImportError:
+            self.skipTest("streamlit is not installed in this environment")
         ui = AppTest.from_file(str(PROJECT_DIR / "app.py"), default_timeout=20).run()
         self.assertEqual(len(ui.exception), 0)
         ui.text_area[0].set_value(EXAMPLES["positive"]).run()

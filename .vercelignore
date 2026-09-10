@@ -1,0 +1,81 @@
+# ============================================================
+# .vercelignore — E-Consultation Feedback Sentiment Analysis
+# Excludes local dev, training, test, and duplicate artifacts
+# from Vercel Serverless Function production deployment bundles.
+# ============================================================
+
+# Virtual environments and dependencies
+venv/
+.venv/
+env/
+.env/
+frontend/node_modules/
+node_modules/
+
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Git and IDE configurations
+.git/
+.github/
+.vscode/
+.idea/
+.gemini/
+
+# Local databases and runtime log files
+*.sqlite3
+consultation_history.sqlite3
+*.log
+backend-*.log
+frontend-*.log
+live-verification.log
+
+# Tests and fixtures
+tests/
+
+# Development requirements and documentation
+requirements-dev.txt
+docs/
+
+# Offline training datasets (root CSVs)
+/*.csv
+sentiment_dataset_10k.csv
+sentiment_dataset_v3.csv
+sentiment_dataset_improved.csv
+Sentiment_dataset.csv
+
+# Offline model training, evaluation, and generation scripts
+train_model.py
+train_10k.py
+train_v3.py
+generate_10k_dataset.py
+generate_dataset_v3.py
+generate_improved_dataset.py
+analyze_dataset.py
+predict.py
+app.py
+evaluation/
+
+# Backups and temporary artifacts
+backup/
+backup_frontend/
+scratch/
+
+# Archived and duplicate model versions
+# (Production loads models/final_sentiment_model.pkl and models/final_tfidf_vectorizer.pkl)
+sentiment_model.pkl
+tfidf_vectorizer.pkl
+models/model_v1/
+models/model_v2_10k/
+models/model_v3/
+models/sentiment_model.pkl
+models/tfidf_vectorizer.pkl
+
+# Exclude generated plots from outputs but preserve evaluation text/csv
+outputs/*.png
+outputs/.matplotlib/
+!outputs/model_comparison.csv
+!outputs/dataset_statistics.txt

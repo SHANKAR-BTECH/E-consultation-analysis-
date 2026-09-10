@@ -1,0 +1,6 @@
+# Development, dataset generation, model training, and testing dependencies
+-r requirements.txt
+pandas
+streamlit
+matplotlib
+seaborn

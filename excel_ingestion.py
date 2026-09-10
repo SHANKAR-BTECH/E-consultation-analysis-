@@ -84,17 +84,36 @@ def parse_excel(stream, sheet_name=None):
         wb.close()
 
 
-def inspect_excel_columns(sheet_names, columns, rows):
+def inspect_excel_columns(sheet_names, columns, rows, include_preview=False):
     """Return column inspection results for Excel, including available sheets."""
     candidates = {role: [name for name in columns if name.casefold() in aliases]
                   for role, aliases in ALIASES.items()}
-    suggested = {role: values[0] if len(values) == 1 else None for role, values in candidates.items()}
-    return {"columns": columns, "row_count": len(rows), "suggested_mapping": suggested,
-            "candidates": candidates, "requires_selection": suggested["text_column"] is None,
-            "sheets": sheet_names}
+    suggested = {role: (candidates[role][0] if len(candidates[role]) == 1 else None)
+                 for role in ALIASES}
+    result = {
+        "columns": columns,
+        "row_count": len(rows),
+        "suggested_mapping": suggested,
+        "candidates": candidates,
+        "requires_selection": suggested["text_column"] is None,
+        "sheets": sheet_names
+    }
+    if include_preview:
+        preview = []
+        if suggested.get("text_column"):
+            text_col = suggested["text_column"]
+            preview = [str(r.get(text_col, "")).strip() for r in rows if r.get(text_col) and str(r.get(text_col, "")).strip()][:15]
+        elif rows and columns:
+            for col in columns:
+                samples = [str(r.get(col, "")).strip() for r in rows if r.get(col) and str(r.get(col, "")).strip()]
+                if samples and any(len(s.split()) >= 3 for s in samples[:5]):
+                    preview = samples[:15]
+                    break
+        result["preview"] = preview
+    return result
 
 
-def map_excel(columns, rows, options):
+def map_excel(columns, rows, options, filename=None, domain=None):
     """Map Excel columns to response records using the same logic as PDF."""
     inspection = inspect_excel_columns([], columns, rows)
     selected = {}
@@ -116,7 +135,7 @@ def map_excel(columns, rows, options):
             or len(metadata_columns) != len(set(metadata_columns))):
         raise AnalysisError("metadata_columns must contain unique existing column names.")
     normalized = []
-    for row in rows:
+    for idx, row in enumerate(rows, 1):
         entry = {"text": row[selected["text_column"]]}
         for role in ("id", "date", "category", "source"):
             column = selected[role + "_column"]
@@ -124,5 +143,10 @@ def map_excel(columns, rows, options):
                 entry[role] = row[column]
         if metadata_columns:
             entry["metadata"] = {name: row[name] for name in metadata_columns}
+        if filename:
+            entry["source_file"] = filename
+            entry["source_index"] = idx
+        if domain:
+            entry["domain"] = domain
         normalized.append(entry)
     return normalized

@@ -13,7 +13,8 @@ CONSULTATION_DB_PATH = os.environ.get('CONSULTATION_DB_PATH') or str(PROJECT_DIR
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS consultations (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, status TEXT NOT NULL,
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    domain TEXT, input_format TEXT
 );
 CREATE TABLE IF NOT EXISTS imports (
     id TEXT PRIMARY KEY, consultation_id TEXT NOT NULL REFERENCES consultations(id),
@@ -26,7 +27,8 @@ CREATE TABLE IF NOT EXISTS analysis_runs (
     status TEXT NOT NULL, response_count INTEGER NOT NULL,
     accepted_count INTEGER, model_manifest TEXT NOT NULL,
     created_at TEXT NOT NULL, started_at TEXT, ended_at TEXT,
-    failure TEXT, result_json TEXT, result_hash TEXT
+    failure TEXT, result_json TEXT, result_hash TEXT,
+    target_file TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_imports_consultation ON imports(consultation_id, created_at, id);
 CREATE INDEX IF NOT EXISTS ix_runs_consultation ON analysis_runs(consultation_id, created_at, id);
@@ -39,6 +41,14 @@ class Database:
         connection = self.connection()
         try:
             connection.executescript(SCHEMA)
+            cols = [row['name'] for row in connection.execute("PRAGMA table_info(consultations)").fetchall()]
+            if 'domain' not in cols:
+                connection.execute("ALTER TABLE consultations ADD COLUMN domain TEXT")
+            if 'input_format' not in cols:
+                connection.execute("ALTER TABLE consultations ADD COLUMN input_format TEXT")
+            run_cols = [row['name'] for row in connection.execute("PRAGMA table_info(analysis_runs)").fetchall()]
+            if 'target_file' not in run_cols:
+                connection.execute("ALTER TABLE analysis_runs ADD COLUMN target_file TEXT")
         finally:
             connection.close()
 

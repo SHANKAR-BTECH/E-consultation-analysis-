@@ -54,6 +54,15 @@ def normalize_response(row, index):
             raise ValueError(f"{field} must be null or a string of at most 256 characters.")
         result[field] = (value.strip() or None) if value is not None else None
     metadata = row.get("metadata")
+    if "source_file" in row or "domain" in row or "source_index" in row:
+        meta_dict = dict(metadata) if isinstance(metadata, dict) else {}
+        if "source_file" in row and "source_file" not in meta_dict:
+            meta_dict["source_file"] = row["source_file"]
+        if "domain" in row and "domain" not in meta_dict:
+            meta_dict["domain"] = row["domain"]
+        if "source_index" in row and "source_index" not in meta_dict:
+            meta_dict["source_index"] = row["source_index"]
+        metadata = meta_dict
     if metadata is not None:
         if not isinstance(metadata, dict) or any(
             not isinstance(k, str) or not isinstance(v, (str, int, float, bool, type(None)))
@@ -68,11 +77,14 @@ def normalize_response(row, index):
     return result
 
 
+from domain_validation import evaluate_domain_relevance
+
+
 def analyze_text(text, **metadata):
     return analyze_batch([{**metadata, "text": text}])
 
 
-def analyze_batch(responses):
+def analyze_batch(responses, domain=None):
     if not isinstance(responses, list) or not responses:
         raise AnalysisError("responses must be a non-empty array of response objects.")
     if len(responses) > MAX_BATCH_RESPONSES:
@@ -87,6 +99,22 @@ def analyze_batch(responses):
             normalized.append(normalize_response(row, index))
         except ValueError as exc:
             rejected.append({"row_index": index, "message": str(exc)})
+
+    # Domain relevance validation
+    domain_relevance = None
+    if domain:
+        texts = [row["text"] for row in normalized]
+        domain_relevance = evaluate_domain_relevance(texts, domain)
+        if domain_relevance["is_clearly_unrelated"]:
+            raise AnalysisError(
+                domain_relevance["message"],
+                details={
+                    "domain_relevance": domain_relevance,
+                    "domain": domain,
+                    "suggested_domain": domain_relevance.get("suggested_domain")
+                }
+            )
+
     service = get_service()
     predictions = service.predict_batch([row["text"] for row in normalized])
     valid, warnings = [], []
@@ -103,10 +131,16 @@ def analyze_batch(responses):
     rejected.sort(key=lambda row: row["row_index"])
     if not valid:
         raise AnalysisError("No valid responses could be analyzed.", {"total_received": len(responses), "rejected": rejected})
-    return {
+
+    result = {
         "schema_version": "2.0",
         "total_received": len(responses), "total_responses": len(valid),
         "rejected_count": len(rejected), "rejected": rejected, "warnings": warnings,
         "responses": valid,
         **build_insights(valid, service.classes),
     }
+    if domain:
+        result["domain"] = domain
+        if domain_relevance:
+            result["domain_relevance"] = domain_relevance
+    return result

@@ -67,9 +67,9 @@ export default function ResultsSection({
     const priorityActions = synthesizePriorityActions(negativeIssues);
     const improvements = extractImprovements(data.responses, data.issues);
     const mixed = extractMixedFeedback(data.responses, rawRequests);
-    const briefParagraphs = synthesizeExecutiveBrief(data, requests, improvements, mixed, negativeIssues);
+    const briefParagraphs = synthesizeExecutiveBrief(data, requests, improvements, mixed, negativeIssues, data.domain);
     const keyFindings = synthesizeKeyFindings(negativeIssues, requests, improvements);
-    const recommendations = synthesizeRecommendations(data.issues, requests, mixed);
+    const recommendations = synthesizeRecommendations(data.issues, requests, mixed, negativeIssues, data.domain);
 
     return {
       rawRequests,
@@ -248,7 +248,9 @@ export default function ResultsSection({
       {/* ── Results Header ── */}
       <div className="results-heading">
         <div>
-          <p className="eyebrow">Public Consultation Decision Support</p>
+          <p className="eyebrow" id="results-domain-eyebrow">
+            {data.domain ? `${data.domain.toUpperCase()} CONSULTATION DECISION SUPPORT` : 'Public Consultation Decision Support'}
+          </p>
           <h1 id="results-title" tabIndex="-1">
             {number(data.total_responses)}{' '}
             {data.total_responses === 1 ? 'response analyzed' : 'responses analyzed'}
@@ -256,6 +258,21 @@ export default function ResultsSection({
           <p id="results-meta" className="muted">
             Source: {source} · {number(data.total_received)} received · {number(data.rejected_count)} excluded from analytical totals
           </p>
+          {Array.isArray(data.files) && data.files.length > 1 && (
+            <div className="analyzed-files-badge-list" style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              <span className="small muted">Files combined:</span>
+              {data.files.map((fn, idx) => (
+                <span key={idx} className="analyzed-file-pill" style={{ fontSize: '12px', background: '#e9ecef', padding: '2px 8px', borderRadius: '4px' }}>
+                  📄 {fn}
+                </span>
+              ))}
+            </div>
+          )}
+          {data.domain_relevance && data.domain_relevance.status === 'mixed' && (
+            <div className="notice" role="status" style={{ marginTop: '10px' }}>
+              <p>ℹ <strong>Domain Observation:</strong> {data.domain_relevance.message}</p>
+            </div>
+          )}
         </div>
         <button
           type="button"

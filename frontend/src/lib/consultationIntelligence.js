@@ -57,6 +57,148 @@ export function cleanActionableRequest(rawSentence) {
   return result;
 }
 
+export function normalizeForComparison(str) {
+  if (!str) return '';
+  return str.toLowerCase()
+    .replace(/["'“”‘’]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function isNearDuplicate(strA, strB) {
+  const a = normalizeForComparison(strA);
+  const b = normalizeForComparison(strB);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.includes(b) && (b.length / a.length) > 0.7) return true;
+  if (b.includes(a) && (a.length / b.length) > 0.7) return true;
+  return false;
+}
+
+export function summarizeActionableRequest(rawText, issueName = null) {
+  if (!rawText) return '';
+  let s = cleanActionableRequest(rawText);
+  if (!s) return rawText.trim();
+
+  s = s.replace(/\.+$/, '').trim();
+
+  // 1. Passive modal conversion: "[Subject] should/must/needs to/ought to be [verb-ed] [rest]"
+  // e.g. "Afternoon services should be checked more often" -> "Review afternoon service frequency"
+  const passiveMatch = s.match(/^([A-Za-z0-9\s-]+?)\s+(?:should|must|ought to|needs? to)\s+be\s+([a-z]+ed)\s*(.*)/i);
+  if (passiveMatch) {
+    const subj = passiveMatch[1].trim();
+    const pastVerb = passiveMatch[2].toLowerCase();
+    const rest = passiveMatch[3].trim();
+    const verbMap = {
+      checked: 'Review',
+      inspected: 'Inspect',
+      reviewed: 'Review',
+      improved: 'Improve',
+      increased: 'Increase',
+      expanded: 'Expand',
+      extended: 'Extend',
+      repaired: 'Repair',
+      fixed: 'Fix',
+      updated: 'Update',
+      simplified: 'Simplify',
+      provided: 'Provide',
+      tested: 'Test',
+      monitored: 'Monitor',
+      maintained: 'Maintain',
+      replaced: 'Replace',
+      restored: 'Restore',
+      reduced: 'Reduce',
+      cleaned: 'Clean',
+      adjusted: 'Adjust',
+      rescheduled: 'Reschedule',
+      scheduled: 'Schedule',
+      distributed: 'Distribute',
+      addressed: 'Address',
+      connected: 'Connect',
+      prioritized: 'Prioritize',
+      published: 'Publish',
+      resolved: 'Resolve',
+      processed: 'Process',
+      delivered: 'Deliver',
+      installed: 'Install',
+      completed: 'Complete'
+    };
+
+    const toInfinitive = (v) => {
+      const lower = v.toLowerCase();
+      if (verbMap[lower]) return verbMap[lower];
+      if (lower.endsWith('ied')) return lower.slice(0, -3) + 'y';
+      if (lower.endsWith('eed')) return lower.slice(0, -1);
+      if (lower.endsWith('ed')) {
+        if (/[aeiou][^aeiou]ed$/.test(lower)) return lower.slice(0, -1);
+        return lower.slice(0, -2);
+      }
+      return lower;
+    };
+
+    const activeVerb = verbMap[pastVerb] || (toInfinitive(pastVerb).charAt(0).toUpperCase() + toInfinitive(pastVerb).slice(1));
+
+    // Support compound passive: "updated and distributed" -> "Update and distribute"
+    const compoundMatch = rest.match(/^and\s+([a-z]+ed)\s*(.*)/i);
+    if (compoundMatch) {
+      const secondVerb = toInfinitive(compoundMatch[1]).toLowerCase();
+      const remainder = compoundMatch[2].trim();
+      s = `${activeVerb} and ${secondVerb} ${subj.toLowerCase()}${remainder ? ' ' + remainder : ''}`;
+    } else if (subj.toLowerCase().endsWith('services') && /^more\s+often$/i.test(rest)) {
+      s = `${activeVerb} ${subj.toLowerCase().replace(/services$/i, 'service frequency')}`;
+    } else {
+      s = `${activeVerb} ${subj.toLowerCase()}${rest ? ' ' + rest : ''}`;
+    }
+  }
+
+  // 2. Comparative conversion: "[Subject] should be simpler and available online"
+  const compMatch = s.match(/^([A-Za-z0-9\s-]+?)\s+(?:should|must|needs? to)\s+be\s+simpler\s+(?:and\s+)?available\s+online/i);
+  if (compMatch) {
+    s = `Simplify ${compMatch[1].toLowerCase()} and enable online access`;
+  } else {
+    const generalComp = s.match(/^([A-Za-z0-9\s-]+?)\s+(?:should|must|needs? to)\s+be\s+([a-z]+er)\s*(.*)/i);
+    if (generalComp) {
+      const subj = generalComp[1].trim();
+      const comp = generalComp[2].toLowerCase();
+      const rest = generalComp[3].trim();
+      const compMap = {
+        simpler: 'Simplify',
+        easier: 'Make easier',
+        faster: 'Accelerate',
+        cheaper: 'Reduce fares for',
+        cleaner: 'Improve cleanliness of'
+      };
+      const active = compMap[comp];
+      if (active) {
+        s = `${active} ${subj.toLowerCase()}${rest ? ' ' + rest : ''}`;
+      }
+    }
+  }
+
+  // 3. Direct modal conversion: "[Subject] should [verb] [rest]"
+  const directModal = s.match(/^(?:[A-Za-z0-9\s-]+?)\s+(?:should|must|ought to|needs? to)\s+([a-z]+)\s+(.*)/i);
+  if (directModal) {
+    const verb = directModal[1];
+    const rest = directModal[2];
+    if (ACTION_VERBS.test(verb) || REQUEST_REGEX.test(verb)) {
+      s = `${verb.charAt(0).toUpperCase() + verb.slice(1)} ${rest}`;
+    }
+  }
+
+  // 4. Strip modal prefixes: "We need to [verb]" -> "[Verb]"
+  s = s.replace(/^(?:we\s+need\s+to|there\s+should\s+be|there\s+needs\s+to\s+be)\s+/i, '');
+  s = s.replace(/^need\s+more\s+/i, 'Increase ');
+  s = s.replace(/^need\s+better\s+/i, 'Improve ');
+
+  s = s.trim();
+  if (!s) return rawText.trim();
+
+  let result = s.charAt(0).toUpperCase() + s.slice(1);
+  if (!result.endsWith('.')) result += '.';
+  return result;
+}
+
 /**
  * Extract raw actionable requests from all responses.
  * Separates multiple distinct requests within a single response.
@@ -109,16 +251,45 @@ export function extractRequests(responses = [], issues = []) {
     if (matchingReqs.length > 0) {
       matchingReqs.forEach((r) => assignedIndices.add(r.text.toLowerCase()));
       const repReq = matchingReqs[0];
-      const reqTitle = repReq.text;
+      const analyticalTitle = summarizeActionableRequest(repReq.text, issue.issue);
 
-      if (!seenTitles.has(reqTitle.toLowerCase())) {
-        seenTitles.add(reqTitle.toLowerCase());
+      // Select authentic distinct representative quote:
+      let chosenQuote = null;
+      for (const r of matchingReqs) {
+        const candidate = r.originalSentence || r.fullText;
+        if (!isNearDuplicate(analyticalTitle, candidate)) {
+          chosenQuote = candidate;
+          break;
+        }
+      }
+
+      if (!chosenQuote) {
+        const otherIssueResponses = responses.filter((resp) => {
+          const l = (resp.text || '').toLowerCase();
+          return issueWords.some((w) => l.includes(w));
+        });
+        for (const resp of otherIssueResponses) {
+          const candidate = resp.text;
+          if (!isNearDuplicate(analyticalTitle, candidate) && candidate.length >= 15) {
+            chosenQuote = candidate;
+            break;
+          }
+        }
+      }
+
+      if (!chosenQuote) {
+        chosenQuote = repReq.originalSentence || repReq.fullText;
+      }
+
+      const dedupeKey = analyticalTitle.toLowerCase();
+      if (!seenTitles.has(dedupeKey)) {
+        seenTitles.add(dedupeKey);
         grouped.push({
-          title: reqTitle,
+          title: analyticalTitle,
           targetDomain: title(issue.issue),
           count: matchingReqs.length,
           priority: issue.priority?.level || (matchingReqs.length >= 2 ? 'HIGH' : 'MEDIUM'),
-          representativeQuote: repReq.originalSentence || repReq.fullText,
+          representativeQuote: chosenQuote,
           supportingResponses: matchingReqs.map((r) => r.responseIndex),
           evidenceCount: matchingReqs.length,
           suggestedFollowUp: `Review reported ${issue.issue.toLowerCase()} concerns and assess operational feasibility of citizen proposals.`,
@@ -130,15 +301,17 @@ export function extractRequests(responses = [], issues = []) {
 
   // 2. Add individual distinct actionable requests
   rawRequests.forEach((r) => {
-    const reqTitle = r.text;
-    if (!seenTitles.has(reqTitle.toLowerCase())) {
-      seenTitles.add(reqTitle.toLowerCase());
+    const analyticalTitle = summarizeActionableRequest(r.text);
+    const dedupeKey = analyticalTitle.toLowerCase();
+    if (!seenTitles.has(dedupeKey)) {
+      seenTitles.add(dedupeKey);
+      const quote = r.originalSentence || r.fullText;
       grouped.push({
-        title: reqTitle,
+        title: analyticalTitle,
         targetDomain: 'Public Service',
         count: 1,
         priority: r.sentiment === 'negative' ? 'MEDIUM' : 'LOW',
-        representativeQuote: r.originalSentence || r.fullText,
+        representativeQuote: quote,
         supportingResponses: [r.responseIndex],
         evidenceCount: 1,
         suggestedFollowUp: `Assess whether this request represents an isolated incident or broader localized need.`,
@@ -466,13 +639,17 @@ export function extractMixedFeedback(responses = [], rawRequests = []) {
 /**
  * Synthesize Executive Brief ("What people are telling you").
  */
-export function synthesizeExecutiveBrief(data, requests = [], improvements = [], mixed = [], negativeIssues = []) {
+export function synthesizeExecutiveBrief(data, requests = [], improvements = [], mixed = [], negativeIssues = [], domain = null) {
   const total = data.total_responses || 0;
   const sentiment = data.sentiment || { counts: {}, percentages: {} };
   const posCount = sentiment.counts?.positive || 0;
   const negCount = sentiment.counts?.negative || 0;
   const posPct = sentiment.percentages?.positive || 0;
   const negPct = sentiment.percentages?.negative || 0;
+  const effectiveDomain = domain || data?.domain;
+  const domainPrefix = effectiveDomain && effectiveDomain !== 'General' && effectiveDomain !== 'other'
+    ? `${effectiveDomain} `
+    : '';
 
   let posture = '';
   if (posPct > 55) {
@@ -491,16 +668,16 @@ export function synthesizeExecutiveBrief(data, requests = [], improvements = [],
 
   // Paragraph 1: Overall posture
   paragraphs.push(
-    `Across ${number(total)} verified consultation responses, public sentiment is ${posture}. Validated classification indicates ${percent(posPct)} positive feedback (${number(posCount)} responses), ${percent(negPct)} negative feedback (${number(negCount)} responses), and ${percent(sentiment.percentages?.neutral || 0)} neutral or informational submissions.`
+    `Across ${number(total)} verified ${domainPrefix}consultation responses, public sentiment is ${posture}. Validated classification indicates ${percent(posPct)} positive feedback (${number(posCount)} responses), ${percent(negPct)} negative feedback (${number(negCount)} responses), and ${percent(sentiment.percentages?.neutral || 0)} neutral or informational submissions.`
   );
 
   // Paragraph 2: Major negative concerns & positive outcomes
   let concernsText = '';
   if (negativeIssues.length > 0) {
     const topIssues = negativeIssues.slice(0, 3).map((i) => `"${i.displayTitle}" (${number(i.negativeCount)} responses)`).join(', ');
-    concernsText = `Key issues requiring administrative attention center on ${topIssues}.`;
+    concernsText = `Key issues requiring administrative attention in ${domainPrefix ? `${domainPrefix.trim()} ` : ''}operations center on ${topIssues}.`;
   } else {
-    concernsText = 'No critical complaint frequency thresholds were breached across analyzed responses.';
+    concernsText = `No critical complaint frequency thresholds were breached across analyzed ${domainPrefix}responses.`;
   }
 
   let improvementsText = '';
@@ -578,9 +755,10 @@ export function synthesizeKeyFindings(negativeIssues = [], requests = [], improv
  * Connects: PROBLEM -> CITIZEN EVIDENCE -> RELATED PUBLIC REQUEST -> CAUTIOUS ADMINISTRATIVE FOLLOW-UP.
  * Cautious verbs: Review, Investigate, Consider, Assess, Evaluate.
  */
-export function synthesizeRecommendations(issues = [], requests = [], mixed = [], negativeIssues = []) {
+export function synthesizeRecommendations(issues = [], requests = [], mixed = [], negativeIssues = [], domain = null) {
   const recommendations = [];
   const targetIssues = negativeIssues && negativeIssues.length > 0 ? negativeIssues : issues;
+  const domainContext = domain && domain !== 'General' ? `in ${domain} operations ` : '';
 
   targetIssues.slice(0, 3).forEach((issue) => {
     const issueTitle = issue.displayTitle || title(issue.issue);
@@ -594,11 +772,11 @@ export function synthesizeRecommendations(issues = [], requests = [], mixed = []
 
     recommendations.push({
       actionVerb: issue.suggestedFollowUp?.startsWith('Investigate') ? 'Investigate' : 'Review',
-      title: issue.suggestedFollowUp || `Review reported ${issueTitle.toLowerCase()} concerns and assess operational remedies in affected areas.`,
+      title: issue.suggestedFollowUp || `Review reported ${issueTitle.toLowerCase()} concerns and assess operational remedies ${domainContext}in affected areas.`,
       problem: issueTitle,
       evidence: evidenceQuote,
       relatedRequest: linkedReq,
-      guidance: `Review operational reports and assess whether targeted interventions or maintenance can resolve citizen concerns.`
+      guidance: issue.suggestedFollowUp || `Evaluate service delivery and monitor citizen satisfaction.`
     });
   });
 

@@ -45,6 +45,15 @@ def inspect_pdf(page_count, lines):
     return {"page_count": page_count, "row_count": len(lines), "preview": lines[:5]}
 
 
-def map_pdf(lines):
-    """Map extracted lines to response records; no column mapping is needed."""
-    return [{"text": line} for line in lines]
+def map_pdf(lines, filename=None, domain=None):
+    """Map extracted lines to response records; retains source provenance."""
+    mapped = []
+    for idx, line in enumerate(lines, 1):
+        record = {"text": line}
+        if filename:
+            record["source_file"] = filename
+            record["source_index"] = idx
+        if domain:
+            record["domain"] = domain
+        mapped.append(record)
+    return mapped

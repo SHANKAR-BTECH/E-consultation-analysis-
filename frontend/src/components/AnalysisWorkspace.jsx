@@ -1,5 +1,6 @@
 import React from 'react';
 import Hero from './Hero.jsx';
+import DomainSelector from './DomainSelector.jsx';
 import InputTabs from './InputTabs.jsx';
 import PasteResponses from './PasteResponses.jsx';
 import PdfUpload from './PdfUpload.jsx';
@@ -7,8 +8,16 @@ import ExcelUpload from './ExcelUpload.jsx';
 import { SAMPLE_LABELS } from '../lib/presets.js';
 
 export default function AnalysisWorkspace({
+  domain,
+  onSelectDomain,
+  domainLocked,
+  domainRelevance,
+  onSwitchDomain,
+  onResetConsultation,
   mode,
   onSelectTab,
+  analysisMode,
+  onSetAnalysisMode,
   // Paste
   text,
   onTextChange,
@@ -19,19 +28,13 @@ export default function AnalysisWorkspace({
   onClearText,
   onSubmitText,
   // PDF
-  pdfFile,
-  pdfInspection,
-  onPdfFileSelected,
+  pdfFiles,
+  onPdfFilesSelected,
   onRemovePdfFile,
   onSubmitPdf,
   // Excel
-  excelFile,
-  excelInspection,
-  excelSheets,
-  excelSheet,
-  excelMapping,
-  excelMetadataColumns,
-  onExcelFileSelected,
+  excelFiles,
+  onExcelFilesSelected,
   onExcelSheetChange,
   onRemoveExcelFile,
   onExcelMappingChange,
@@ -43,11 +46,26 @@ export default function AnalysisWorkspace({
   hasResult,
   busy
 }) {
+  const activeFileCount = mode === 'pdf' ? (pdfFiles?.length || 0) : mode === 'excel' ? (excelFiles?.length || 0) : 0;
+
   return (
     <section id="workspace" aria-labelledby="workspace-title">
       <Hero />
 
       <div className="input-workspace">
+        {/* Step 1: Policy Domain Selection */}
+        <DomainSelector
+          selectedDomain={domain}
+          onSelectDomain={onSelectDomain}
+          isLocked={domainLocked}
+          fileCount={activeFileCount}
+          inputFormat={mode}
+          domainRelevance={domainRelevance}
+          onResetConsultation={onResetConsultation}
+          busy={busy}
+        />
+
+        {/* Step 2: Format Choice */}
         <InputTabs mode={mode} onSelectTab={onSelectTab} busy={busy} />
 
         {mode === 'paste' && (
@@ -58,6 +76,9 @@ export default function AnalysisWorkspace({
             onSeparatorChange={onSeparatorChange}
             responseCount={responseCount}
             characterCount={characterCount}
+            domain={domain}
+            domainRelevance={domainRelevance}
+            onSwitchDomain={onSwitchDomain}
             onClear={onClearText}
             onSubmit={onSubmitText}
             busy={busy}
@@ -66,9 +87,13 @@ export default function AnalysisWorkspace({
 
         {mode === 'pdf' && (
           <PdfUpload
-            file={pdfFile}
-            inspection={pdfInspection}
-            onFileSelected={onPdfFileSelected}
+            files={pdfFiles}
+            domain={domain}
+            analysisMode={analysisMode}
+            domainRelevance={domainRelevance}
+            onSwitchDomain={onSwitchDomain}
+            onSetAnalysisMode={onSetAnalysisMode}
+            onFilesSelected={onPdfFilesSelected}
             onRemoveFile={onRemovePdfFile}
             onSubmit={onSubmitPdf}
             busy={busy}
@@ -77,13 +102,13 @@ export default function AnalysisWorkspace({
 
         {mode === 'excel' && (
           <ExcelUpload
-            file={excelFile}
-            inspection={excelInspection}
-            sheets={excelSheets}
-            sheet={excelSheet}
-            mapping={excelMapping}
-            metadataColumns={excelMetadataColumns}
-            onFileSelected={onExcelFileSelected}
+            files={excelFiles}
+            domain={domain}
+            analysisMode={analysisMode}
+            domainRelevance={domainRelevance}
+            onSwitchDomain={onSwitchDomain}
+            onSetAnalysisMode={onSetAnalysisMode}
+            onFilesSelected={onExcelFilesSelected}
             onSheetChange={onExcelSheetChange}
             onRemoveFile={onRemoveExcelFile}
             onMappingChange={onExcelMappingChange}
@@ -115,7 +140,7 @@ export default function AnalysisWorkspace({
         <div id="empty-state" className="workspace-foot">
           <p>No consultation analyzed yet.</p>
           <p>
-            Paste responses, upload a PDF or upload an Excel workbook to begin.
+            Select a domain, then upload PDF documents or Excel workbooks to begin.
             <span> English-language prototype · Original evidence retained</span>
           </p>
         </div>

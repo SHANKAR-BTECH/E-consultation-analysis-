@@ -241,6 +241,12 @@ export default function CitizenExplorer({
                     <td className="cell-feedback">
                       <div className="row-meta">
                         <span className="row-badge">Response #{number(row.row_index)}</span>
+                        {(row.metadata?.source_file || row.source_file) && (
+                          <span className="row-source-badge" title="Source provenance file">
+                            📄 {row.metadata?.source_file || row.source_file}
+                            {row.metadata?.source_index ? ` · #${row.metadata.source_index}` : ''}
+                          </span>
+                        )}
                         {row.id && <span className="row-id">ID: {row.id}</span>}
                       </div>
                       <p className="row-text">{row.text}</p>
