@@ -2,6 +2,39 @@
 
 Consultation intelligence engine with an integrated analysis frontend. The primary domain is government/public-policy e-consultation: analyzing citizen responses about public services and policies. Product, service, and student feedback are possible secondary demonstrations; their accuracy has not been established.
 
+## Live Demo
+
+Experience the full interactive application deployed on Vercel:
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-black?style=for-the-badge&logo=vercel)](https://e-consultation-analysis.vercel.app/)  
+**Public URL:** [https://e-consultation-analysis.vercel.app/](https://e-consultation-analysis.vercel.app/)
+
+---
+
+## Screenshots
+
+### 1. Main Consultation Dashboard & Policy Domain Selection
+*Real-time service readiness check, policy domain context locking, and executive briefing overview.*
+
+![Main Consultation Dashboard](docs/screenshots/01_dashboard.png)
+
+### 2. Multi-File Consultation Input & Ingestion
+*Support for batch pasted text, multi-file PDFs, and multi-sheet Excel workbooks with automated column mapping.*
+
+![Consultation Input and Ingestion Interface](docs/screenshots/02_consultation_input.png)
+
+### 3. Sentiment Analysis & Citizen Feedback Results
+*Aggregated sentiment distribution, exact-phrase key topics, priority scoring, and synthesized actionable citizen requests.*
+
+![Analysis and Sentiment Results Dashboard](docs/screenshots/03_analysis_results.png)
+
+### 4. Previous Consultations & Provenance History
+*Persisted consultation records, file metadata, source provenance, and independent Refresh/Clear History controls.*
+
+![Previous Consultations History](docs/screenshots/04_previous_consultations.png)
+
+---
+
 ## Current capabilities and architecture
 
 The Flask website provides **batch consultation analysis from pasted responses, CSV or Excel workbooks**: aggregate sentiment, exact-phrase keywords/topics, recurring negative-associated candidate issues, priority scores, source quotes, deterministic summaries, and conditional date/category breakdowns. Streamlit and the CLI retain their single-response interfaces.
