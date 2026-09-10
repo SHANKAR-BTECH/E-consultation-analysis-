@@ -8,7 +8,22 @@ import sqlite3
 
 from config import PROJECT_DIR
 
-CONSULTATION_DB_PATH = os.environ.get('CONSULTATION_DB_PATH') or str(PROJECT_DIR / 'consultation_history.sqlite3')
+def resolve_database_path():
+    """Environment-aware SQLite path resolver.
+
+    Uses /tmp/consultation_history.sqlite3 on Vercel's writable temporary filesystem.
+    Preserves local consultation_history.sqlite3 for development and testing.
+    Can be explicitly overridden via CONSULTATION_DB_PATH.
+    """
+    explicit = os.environ.get('CONSULTATION_DB_PATH')
+    if explicit:
+        return explicit
+    if os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV'):
+        return '/tmp/consultation_history.sqlite3'
+    return str(PROJECT_DIR / 'consultation_history.sqlite3')
+
+
+CONSULTATION_DB_PATH = resolve_database_path()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS consultations (
@@ -37,7 +52,13 @@ CREATE INDEX IF NOT EXISTS ix_runs_consultation ON analysis_runs(consultation_id
 
 class Database:
     def __init__(self, path=None):
-        self.path = path or CONSULTATION_DB_PATH
+        self.path = path or resolve_database_path()
+        db_dir = os.path.dirname(self.path)
+        if db_dir and not os.path.exists(db_dir):
+            try:
+                os.makedirs(db_dir, exist_ok=True)
+            except OSError:
+                pass
         connection = self.connection()
         try:
             connection.executescript(SCHEMA)
