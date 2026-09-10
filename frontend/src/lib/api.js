@@ -49,12 +49,38 @@ export function validateAnalysis(data) {
   }
 }
 
+export const API_BASE_URL = (() => {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    if (import.meta.env.PROD) {
+      return '/api';
+    }
+    if (import.meta.env.SSR) {
+      return '';
+    }
+    if (import.meta.env.VITE_API_URL) {
+      return import.meta.env.VITE_API_URL;
+    }
+    return 'http://127.0.0.1:5000';
+  }
+  return '';
+})();
+
+export function resolveUrl(path) {
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const cleanBase = API_BASE_URL.replace(/\/+$/, '');
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return cleanBase ? `${cleanBase}${cleanPath}` : cleanPath;
+}
+
 export async function request(path, options = {}) {
+  const url = resolveUrl(path);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90000);
 
   try {
-    const response = await fetch(path, {
+    const response = await fetch(url, {
       ...options,
       signal: controller.signal
     });

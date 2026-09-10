@@ -25,6 +25,9 @@ backup/
 backup_frontend/
 outputs/.matplotlib/
 
+# Vercel-generated static frontend output
+public/
+
 # Environment / secrets
 .env
 .env.*

@@ -25,8 +25,26 @@ init_app(app)
 app.register_blueprint(history_api)
 
 
+@app.before_request
+def handle_cors_preflight():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        origin = request.headers.get("Origin")
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Cache-Control, Pragma"
+        return response
+
+
 @app.after_request
 def revalidate_frontend(response):
+    origin = request.headers.get("Origin")
+    if origin and ("127.0.0.1" in origin or "localhost" in origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Cache-Control, Pragma"
+
     if request.endpoint == "index":
         response.headers["Cache-Control"] = "no-store"
     elif request.endpoint == "static":
@@ -37,7 +55,11 @@ def revalidate_frontend(response):
 @app.before_request
 def apply_request_limit():
     # Flask 3.1 supports per-request limits; retain the Phase 1 /predict ceiling.
-    request.max_content_length = MAX_ANALYSIS_REQUEST_BYTES if request.path in ("/analyze", "/analyze-file") else MAX_REQUEST_BYTES
+    is_large = request.path in (
+        "/analyze", "/analyze-file",
+        "/api/analyze", "/api/analyze-file"
+    )
+    request.max_content_length = MAX_ANALYSIS_REQUEST_BYTES if is_large else MAX_REQUEST_BYTES
 
 
 def error(message, status=400):
@@ -439,6 +461,14 @@ def health():
         return jsonify({"status": "ok", "model_loaded": True, "classes": list(service.classes)})
     except ModelUnavailable:
         return jsonify({"status": "unavailable", "model_loaded": False, "classes": []}), 503
+
+
+# Support /api/* route aliases for Vercel Serverless Function & same-origin frontend routing
+app.add_url_rule("/api/health", endpoint="api_health", view_func=health, methods=["GET"])
+app.add_url_rule("/api/predict", endpoint="api_predict", view_func=predict, methods=["POST"])
+app.add_url_rule("/api/analyze", endpoint="api_analyze", view_func=analyze, methods=["POST"])
+app.add_url_rule("/api/analyze-file", endpoint="api_analyze_file", view_func=analyze_file, methods=["POST"])
+app.register_blueprint(history_api, url_prefix="/api/consultations", name="api_history")
 
 
 if __name__ == "__main__":

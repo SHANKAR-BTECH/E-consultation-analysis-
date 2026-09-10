@@ -1,0 +1,10 @@
+{
+  "framework": null,
+  "buildCommand": "npm run vercel-build",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
+    }
+  ]
+}

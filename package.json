@@ -1,0 +1,8 @@
+{
+  "name": "e-consultation-sentiment-analysis",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "vercel-build": "npm ci --prefix frontend --no-audit --no-fund && npm run build --prefix frontend && node scripts/copy-dist.mjs"
+  }
+}
