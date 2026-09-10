@@ -3,44 +3,7 @@
   "buildCommand": "npm run vercel-build",
   "functions": {
     "api/index.py": {
-      "excludeFiles": [
-        "**/scipy/io/**",
-        "**/scipy/signal/**",
-        "**/scipy/cluster/**",
-        "**/scipy/fftpack/**",
-        "**/scipy/odr/**",
-        "**/scipy/differentiate/**",
-        "**/scipy/misc/**",
-        "**/scipy/datasets/**",
-        "**/scipy/tests/**",
-        "**/sklearn/metrics/**",
-        "**/sklearn/linear_model/**",
-        "**/sklearn/cluster/**",
-        "**/sklearn/ensemble/**",
-        "**/sklearn/_loss/**",
-        "**/sklearn/datasets/**",
-        "**/sklearn/neighbors/**",
-        "**/sklearn/tree/**",
-        "**/sklearn/svm/**",
-        "**/sklearn/model_selection/**",
-        "**/sklearn/decomposition/**",
-        "**/sklearn/manifold/**",
-        "**/sklearn/inspection/**",
-        "**/sklearn/feature_selection/**",
-        "**/sklearn/gaussian_process/**",
-        "**/sklearn/impute/**",
-        "**/sklearn/compose/**",
-        "**/sklearn/mixture/**",
-        "**/sklearn/covariance/**",
-        "**/sklearn/neural_network/**",
-        "**/sklearn/semi_supervised/**",
-        "**/sklearn/cross_decomposition/**",
-        "**/sklearn/experimental/**",
-        "**/sklearn/tests/**",
-        "**/numpy/tests/**",
-        "**/numpy/doc/**",
-        "**/numpy/_pyinstaller/**"
-      ]
+      "excludeFiles": "**/{scipy/{cluster,fftpack,io,odr,signal},sklearn/{_loss,cluster,compose,covariance,datasets,decomposition,ensemble,feature_selection,gaussian_process,impute,inspection,linear_model,manifold,metrics,mixture,model_selection,neighbors,svm,tests,tree}}/**"
     }
   },
   "rewrites": [
