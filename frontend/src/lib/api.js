@@ -51,18 +51,12 @@ export function validateAnalysis(data) {
 
 export const API_BASE_URL = (() => {
   if (typeof import.meta !== 'undefined' && import.meta.env) {
-    if (import.meta.env.PROD) {
-      return '/api';
-    }
-    if (import.meta.env.SSR) {
-      return '';
-    }
     if (import.meta.env.VITE_API_URL) {
       return import.meta.env.VITE_API_URL;
     }
-    return 'http://127.0.0.1:5000';
+    return '/api';
   }
-  return '';
+  return '/api';
 })();
 
 export function resolveUrl(path) {
@@ -71,7 +65,11 @@ export function resolveUrl(path) {
   }
   const cleanBase = API_BASE_URL.replace(/\/+$/, '');
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  return cleanBase ? `${cleanBase}${cleanPath}` : cleanPath;
+  if (!cleanBase) return cleanPath;
+  if (cleanPath.startsWith(`${cleanBase}/`) || cleanPath === cleanBase) {
+    return cleanPath;
+  }
+  return `${cleanBase}${cleanPath}`;
 }
 
 export async function request(path, options = {}) {

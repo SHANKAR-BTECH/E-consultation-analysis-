@@ -7,7 +7,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://127.0.0.1:5000',
+      '/api': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      },
       '/consultations': 'http://127.0.0.1:5000',
       '/health': 'http://127.0.0.1:5000',
       '/analyze': 'http://127.0.0.1:5000',
