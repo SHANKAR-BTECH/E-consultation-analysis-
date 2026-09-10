@@ -1,5 +1,5 @@
 import React from 'react';
-import { POLICY_DOMAINS, getDomainInfo } from '../lib/domainConfig.js';
+import { POLICY_DOMAINS } from '../lib/domainConfig.js';
 
 export default function DomainSelector({
   selectedDomain,
@@ -11,8 +11,6 @@ export default function DomainSelector({
   onResetConsultation,
   busy
 }) {
-  const current = getDomainInfo(selectedDomain);
-
   return (
     <div className="domain-selection-panel" id="domain-selection-panel">
       <div className="domain-header">
@@ -35,7 +33,6 @@ export default function DomainSelector({
 
       <div className="domain-control-row">
         <div className="domain-select-wrapper">
-          <span className="domain-icon-display" aria-hidden="true">{current.icon}</span>
           <select
             id="consultation-domain-select"
             value={selectedDomain}

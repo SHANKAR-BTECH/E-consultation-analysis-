@@ -216,6 +216,36 @@ export default function ResultsSection({
     }
   ];
 
+  const summaryFormatLabel = useMemo(() => {
+    if (Array.isArray(data.files) && data.files.length > 0) {
+      const isPdf = data.files.some((f) => String(f).toLowerCase().endsWith('.pdf'));
+      const isExcel = data.files.some((f) => {
+        const s = String(f).toLowerCase();
+        return s.endsWith('.xlsx') || s.endsWith('.xls') || s.endsWith('.csv');
+      });
+      const typeStr = isPdf ? 'PDF' : isExcel ? 'Excel' : 'file';
+      const pluralStr = data.files.length === 1 ? 'file' : 'files';
+      return `${data.files.length} ${typeStr} ${pluralStr}`;
+    }
+    if (source) {
+      const s = String(source).toLowerCase();
+      if (s.endsWith('.pdf')) return '1 PDF file';
+      if (s.endsWith('.xlsx') || s.endsWith('.xls') || s.endsWith('.csv')) return '1 Excel file';
+      return source;
+    }
+    return null;
+  }, [data.files, source]);
+
+  const fileChips = useMemo(() => {
+    if (Array.isArray(data.files) && data.files.length > 0) {
+      return data.files;
+    }
+    if (source && (source.endsWith('.pdf') || source.endsWith('.xlsx') || source.endsWith('.xls') || source.endsWith('.csv'))) {
+      return [source];
+    }
+    return [];
+  }, [data.files, source]);
+
   return (
     <>
       {/* ── Persistent Analysis Navigation ── */}
@@ -245,43 +275,75 @@ export default function ResultsSection({
       )}
 
     <section id="results" aria-labelledby="results-title">
-      {/* ── Results Header ── */}
-      <div className="results-heading">
-        <div>
-          <p className="eyebrow" id="results-domain-eyebrow">
-            {data.domain ? `${data.domain.toUpperCase()} CONSULTATION DECISION SUPPORT` : 'Public Consultation Decision Support'}
-          </p>
-          <h1 id="results-title" tabIndex="-1">
-            {number(data.total_responses)}{' '}
-            {data.total_responses === 1 ? 'response analyzed' : 'responses analyzed'}
-          </h1>
-          <p id="results-meta" className="muted">
-            Source: {source} · {number(data.total_received)} received · {number(data.rejected_count)} excluded from analytical totals
-          </p>
-          {Array.isArray(data.files) && data.files.length > 1 && (
-            <div className="analyzed-files-badge-list" style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              <span className="small muted">Files combined:</span>
-              {data.files.map((fn, idx) => (
-                <span key={idx} className="analyzed-file-pill" style={{ fontSize: '12px', background: '#e9ecef', padding: '2px 8px', borderRadius: '4px' }}>
-                  📄 {fn}
+      {/* ── Consultation Decision Support Summary Block ── */}
+      <div className="results-summary-card" id="results-summary-card">
+        <div className="results-summary-top">
+          <div className="results-summary-title-area">
+            <p className="eyebrow results-summary-eyebrow" id="results-domain-eyebrow">
+              {data.domain ? `${data.domain.toUpperCase()} CONSULTATION DECISION SUPPORT` : 'Public Consultation Decision Support'}
+            </p>
+            <h1 id="results-title" tabIndex="-1" className="results-summary-stat">
+              {number(data.total_responses)}{' '}
+              {data.total_responses === 1 ? 'response analyzed' : 'responses analyzed'}
+            </h1>
+          </div>
+          <div className="results-summary-actions">
+            <button
+              type="button"
+              id="edit-input"
+              className="button secondary"
+              onClick={onEditInput}
+            >
+              {persisted ? 'New analysis' : 'Edit inputs'} <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Compact Metadata Row */}
+        <div className="results-summary-metadata" id="results-meta">
+          {summaryFormatLabel && (
+            <span className="summary-meta-badge">
+              <span className="summary-badge-icon" aria-hidden="true">📁</span>
+              <span>{summaryFormatLabel}</span>
+            </span>
+          )}
+          <span className="summary-meta-badge">
+            <span className="summary-badge-icon" aria-hidden="true">📥</span>
+            <span>{number(data.total_received ?? data.total_responses)} received</span>
+          </span>
+          <span className="summary-meta-badge">
+            <span className="summary-badge-icon" aria-hidden="true">🚫</span>
+            <span>{number(data.rejected_count || 0)} excluded</span>
+          </span>
+          {data.domain && (
+            <span className="summary-meta-badge">
+              <span className="summary-badge-icon" aria-hidden="true">🏛️</span>
+              <span>{data.domain} domain</span>
+            </span>
+          )}
+        </div>
+
+        {/* Source / File Chips */}
+        {fileChips.length > 0 && (
+          <div className="results-summary-files">
+            <span className="summary-files-label">
+              {fileChips.length > 1 ? 'Files combined:' : 'Source file:'}
+            </span>
+            <div className="summary-files-chips">
+              {fileChips.map((fn, idx) => (
+                <span key={idx} className="summary-file-chip">
+                  <span aria-hidden="true">📄</span> {fn}
                 </span>
               ))}
             </div>
-          )}
-          {data.domain_relevance && data.domain_relevance.status === 'mixed' && (
-            <div className="notice" role="status" style={{ marginTop: '10px' }}>
-              <p>ℹ <strong>Domain Observation:</strong> {data.domain_relevance.message}</p>
-            </div>
-          )}
-        </div>
-        <button
-          type="button"
-          id="edit-input"
-          className="button secondary"
-          onClick={onEditInput}
-        >
-          {persisted ? 'New analysis' : 'Edit inputs'} <span aria-hidden="true">↗</span>
-        </button>
+          </div>
+        )}
+
+        {data.domain_relevance && data.domain_relevance.status === 'mixed' && (
+          <div className="notice" role="status" style={{ marginTop: '12px' }}>
+            <p>ℹ <strong>Domain Observation:</strong> {data.domain_relevance.message}</p>
+          </div>
+        )}
       </div>
 
       {/* ── Section Navigation ── */}
