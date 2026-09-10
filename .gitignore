@@ -28,3 +28,6 @@ outputs/.matplotlib/
 # Environment / secrets
 .env
 .env.*
+
+# Database / runtime storage
+*.sqlite3

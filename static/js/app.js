@@ -1,6 +1,6 @@
 import {$,number,setOptions} from './utils.js';
 import {state,parseResponses,resetFilters} from './state.js';
-import {request,analyzeResponses,inspectFile,analyzeFile,inspectExcelFile,analyzeExcelFile,APIError} from './api.js';
+import {request,analyzeResponses,inspectPdfFile,analyzePdfFile,inspectExcelFile,analyzeExcelFile,APIError} from './api.js';
 import {renderAnalysis,renderExplorer,showIssue} from './render.js';
 import {SAMPLES,SAMPLE_LABELS} from './samples.js';
 
@@ -35,7 +35,7 @@ function setBusy(busy) {
 function selectTab(mode) {
   if(state.busy)return;
   state.mode=mode;hideError();
-  ['paste','csv','excel'].forEach(key=>{
+  ['paste','pdf','excel'].forEach(key=>{
     const active=key===mode;
     $('tab-'+key).setAttribute('aria-selected',String(active));$('tab-'+key).tabIndex=active?0:-1;
     $('pane-'+key).hidden=!active;
@@ -63,13 +63,10 @@ async function submit() {
       if(rows.length>limits.maxResponses)throw new APIError('Use at most '+number(limits.maxResponses)+' responses per analysis.');
       if(rows.reduce((sum,text)=>sum+[...text].length,0)>limits.maxCharacters)throw new APIError('The combined responses exceed '+number(limits.maxCharacters)+' characters.');
       operation=()=>analyzeResponses(rows);
-    } else if(state.mode==='csv') {
-      if(!state.file || !state.inspection)throw new APIError('Choose a CSV and inspect its columns first.');
-      if(!$('map-text').value)throw new APIError('Select the response text column before analyzing.');
-      const mapping={text_column:$('map-text').value,date_column:$('map-date').value,category_column:$('map-category').value,id_column:$('map-id').value,source_column:$('map-source').value};
-      const metadata=[...document.querySelectorAll('#metadata-columns input:checked')].map(input=>input.value);
-      source='CSV · '+state.file.name;
-      operation=()=>analyzeFile(state.file,mapping,metadata);
+    } else if(state.mode==='pdf') {
+      if(!state.pdfFile || !state.pdfInspection)throw new APIError('Choose a PDF and extract its text first.');
+      source='PDF · '+state.pdfFile.name;
+      operation=()=>analyzePdfFile(state.pdfFile);
     } else if(state.mode==='excel') {
       if(!state.file || !state.inspection)throw new APIError('Choose an Excel file and inspect its columns first.');
       if(!$('excel-map-text').value)throw new APIError('Select the response text column before analyzing.');
@@ -93,33 +90,25 @@ async function submit() {
     showError(error instanceof APIError ? error : new APIError('The results could not be displayed. Your inputs are still available; please try again.'));
   } finally {setBusy(false);}
 }
-function resetFile() {
-  state.file=null;state.inspection=null;$('csv-file').value='';
-  $('csv-selected').hidden=true;$('csv-mapping').hidden=true;$('drop-zone').hidden=false;
+function resetPdfFile() {
+  state.pdfFile=null;state.pdfInspection=null;$('pdf-file').value='';
+  $('pdf-selected').hidden=true;$('pdf-summary').hidden=true;$('pdf-drop-zone').hidden=false;
 }
-async function chooseFile(file) {
+async function choosePdfFile(file) {
   if(!file || state.busy)return;
-  hideError();resetFile();
-  if(!file.name.toLowerCase().endsWith('.csv')){showError(new APIError('Choose a CSV file with a .csv filename.'));return;}
-  if(file.size>limits.maxCsvBytes){showError(new APIError('The CSV exceeds '+number(limits.maxCsvBytes/1000000)+' MB.'));return;}
-  state.file=file;$('drop-zone').hidden=true;$('csv-selected').hidden=false;
-  $('file-name').textContent=file.name;$('file-description').textContent='Inspecting columns…';
+  hideError();resetPdfFile();
+  if(!file.name.toLowerCase().endsWith('.pdf')){showError(new APIError('Choose a PDF file with a .pdf filename.'));return;}
+  if(file.size>limits.maxPdfBytes){showError(new APIError('The PDF exceeds '+number(limits.maxPdfBytes/1000000)+' MB.'));return;}
+  state.pdfFile=file;$('pdf-drop-zone').hidden=true;$('pdf-selected').hidden=false;
+  $('pdf-file-name').textContent=file.name;$('pdf-file-description').textContent='Extracting text…';
   setBusy(true);
   try {
-    const inspection=await inspectFile(file);
-    state.inspection=inspection;
-    $('file-description').textContent=number(inspection.row_count)+' records detected · '+(file.size/1024).toFixed(1)+' KB';
-    setOptions($('map-text'),inspection.columns,'Select a response column',inspection.suggested_mapping.text_column);
-    setOptions($('map-date'),inspection.columns,'Do not use',inspection.suggested_mapping.date_column);
-    setOptions($('map-category'),inspection.columns,'Do not use',inspection.suggested_mapping.category_column);
-    setOptions($('map-id'),inspection.columns,'Use row number');
-    setOptions($('map-source'),inspection.columns,'Do not use');
-    $('metadata-columns').replaceChildren(...inspection.columns.map(column=>{
-      const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=column;
-      label.append(input,document.createTextNode(column));return label;
-    }));
-    $('csv-mapping').hidden=false;
-  } catch(error) {resetFile();showError(error);}
+    const inspection=await inspectPdfFile(file);
+    state.pdfInspection=inspection;
+    $('pdf-file-description').textContent=number(inspection.row_count)+' responses extracted · '+number(inspection.page_count)+' pages · '+(file.size/1024).toFixed(1)+' KB';
+    $('pdf-preview').replaceChildren(...inspection.preview.map(line=>{const item=document.createElement('li');item.textContent=line;return item;}));
+    $('pdf-summary').hidden=false;
+  } catch(error) {resetPdfFile();showError(error);}
   finally{setBusy(false);}
 }
 async function checkHealth() {
@@ -193,11 +182,11 @@ async function chooseExcelFile(file) {
   finally{setBusy(false);}
 }
 
-for(const mode of ['paste','csv','excel']) {
+for(const mode of ['paste','pdf','excel']) {
   $('tab-'+mode).addEventListener('click',()=>selectTab(mode));
   $('tab-'+mode).addEventListener('keydown',event=>{
     if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
-    event.preventDefault();const modes=['paste','csv','excel'];let index=modes.indexOf(mode);
+    event.preventDefault();const modes=['paste','pdf','excel'];let index=modes.indexOf(mode);
     index=event.key==='Home'?0:event.key==='End'?2:(index+(event.key==='ArrowRight'?1:2))%3;
     selectTab(modes[index]);$('tab-'+modes[index]).focus();
   });
@@ -206,12 +195,12 @@ $('paste-input').addEventListener('input',()=>{state.source='Pasted responses';$
 $('separator').addEventListener('change',updateCounters);
 $('paste-input').addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();submit();}});
 $('clear-paste').addEventListener('click',()=>{$('paste-input').value='';state.source='Pasted responses';$('sample-note').hidden=true;updateCounters();hideError();$('paste-input').focus();});
-$('analyze-paste').addEventListener('click',submit);$('analyze-csv').addEventListener('click',submit);$('analyze-excel').addEventListener('click',submit);
-$('csv-file').addEventListener('change',event=>chooseFile(event.target.files[0]));
-$('remove-file').addEventListener('click',()=>{resetFile();hideError();});
-$('drop-zone').addEventListener('dragover',event=>{event.preventDefault();if(!state.busy)$('drop-zone').classList.add('dragover');});
-$('drop-zone').addEventListener('dragleave',()=>$('drop-zone').classList.remove('dragover'));
-$('drop-zone').addEventListener('drop',event=>{event.preventDefault();$('drop-zone').classList.remove('dragover');if(event.dataTransfer.files.length!==1){showError(new APIError('Please choose one CSV at a time.'));return;}chooseFile(event.dataTransfer.files[0]);});
+$('analyze-paste').addEventListener('click',submit);$('analyze-pdf').addEventListener('click',submit);$('analyze-excel').addEventListener('click',submit);
+$('pdf-file').addEventListener('change',event=>choosePdfFile(event.target.files[0]));
+$('remove-pdf-file').addEventListener('click',()=>{resetPdfFile();hideError();});
+$('pdf-drop-zone').addEventListener('dragover',event=>{event.preventDefault();if(!state.busy)$('pdf-drop-zone').classList.add('dragover');});
+$('pdf-drop-zone').addEventListener('dragleave',()=>$('pdf-drop-zone').classList.remove('dragover'));
+$('pdf-drop-zone').addEventListener('drop',event=>{event.preventDefault();$('pdf-drop-zone').classList.remove('dragover');if(event.dataTransfer.files.length!==1){showError(new APIError('Please choose one PDF at a time.'));return;}choosePdfFile(event.dataTransfer.files[0]);});
 $('excel-file').addEventListener('change',event=>chooseExcelFile(event.target.files[0]));
 $('remove-excel-file').addEventListener('click',()=>{resetExcelFile();hideError();});
 $('excel-sheet').addEventListener('change',()=>inspectExcelSheet());
@@ -246,7 +235,7 @@ for(const name of ['sentiment','category','topic']) $('filter-'+name).addEventLi
 $('reset-filters').addEventListener('click',()=>{clearTimeout(searchTimer);resetFilters();$('search').value='';for(const name of ['sentiment','category','topic'])$('filter-'+name).value='';renderExplorer();});
 $('previous-page').addEventListener('click',()=>{state.filters.page--;renderExplorer();});
 $('next-page').addEventListener('click',()=>{state.filters.page++;renderExplorer();});
-$('csv-limit').textContent=number(limits.maxCsvBytes/1000000)+' MB';
+$('pdf-limit').textContent=number((limits.maxPdfBytes||10000000)/1000000)+' MB';
 $('excel-limit').textContent=number((limits.maxExcelBytes||10000000)/1000000)+' MB';
 $('limits-help').textContent='Up to '+number(limits.maxResponses)+' responses per analysis, '+number(limits.maxPerResponse)+' characters per response, and '+number(limits.maxCharacters)+' combined characters.';
 updateCounters();checkHealth();

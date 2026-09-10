@@ -7,11 +7,12 @@ import unittest
 from unittest.mock import patch
 
 from analysis_service import analyze_text, analyze_batch, AnalysisError, normalize_date
-from config import MAX_BATCH_RESPONSES, MAX_BATCH_CHARACTERS, MAX_CSV_BYTES, MAX_ANALYSIS_REQUEST_BYTES
-from csv_ingestion import parse_csv
+from config import MAX_BATCH_RESPONSES, MAX_BATCH_CHARACTERS, MAX_PDF_BYTES, MAX_ANALYSIS_REQUEST_BYTES
+from pdf_ingestion import parse_pdf, inspect_pdf, map_pdf
 from model_service import get_service, ModelUnavailable
 from server import app
 from text_insights import extract_terms, priority_score
+from pdf_fixture import pdf_bytes, make_pdf
 
 NEGATIVE = "The portal keeps failing and nobody answers my complaint. Poor internet connectivity."
 POSITIVE = "The process was quick and very helpful."
@@ -32,7 +33,7 @@ class AnalysisTests(unittest.TestCase):
         self.client = app.test_client()
 
     def upload(self, content, **fields):
-        return self.client.post("/analyze-file", data={"file": (io.BytesIO(content), "responses.csv"), **fields}, content_type="multipart/form-data")
+        return self.client.post("/analyze-file", data={"file": (io.BytesIO(content), "responses.pdf"), **fields}, content_type="multipart/form-data")
 
     def test_single_analysis(self):
         result = analyze_text(POSITIVE)
@@ -199,72 +200,73 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(response.status_code, 500)
         self.assertNotIn("private", response.json["message"])
 
-    def test_csv_matches_json(self):
-        content = f'text,date,category\n"{NEGATIVE}",2026-01-02,Rural\n"{POSITIVE}",,Urban\n'.encode()
+    def test_pdf_matches_json(self):
+        content = pdf_bytes([NEGATIVE, POSITIVE])
         response = self.upload(content)
         self.assertEqual(response.status_code, 200)
-        expected = analyze_batch([{"text": NEGATIVE, "date": "2026-01-02", "category": "Rural"}, {"text": POSITIVE, "category": "Urban"}])
+        expected = analyze_batch(map_pdf([NEGATIVE, POSITIVE]))
         self.assertEqual(response.json, expected)
 
-    def test_csv_inspection_and_selection(self):
-        content = f'citizen_opinion,submitted,dept,region\n{POSITIVE},2026-01-02,Water,South\n'.encode()
+    def test_pdf_inspection_is_read_only(self):
+        content = pdf_bytes([POSITIVE, NEGATIVE])
         response = self.upload(content, mode="inspect")
-        self.assertTrue(response.json["requires_selection"])
-        self.assertEqual(response.json["row_count"], 1)
-        response = self.upload(content)
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("columns", response.json["details"])
-        response = self.upload(content, text_column="citizen_opinion", date_column="submitted", category_column="dept", metadata_columns='["region"]')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json["responses"][0]["metadata"], {"region": "South"})
-        self.assertEqual(response.json["responses"][0]["date"], "2026-01-02")
-        self.assertEqual(self.upload(content, text_column="missing").status_code, 400)
+        self.assertEqual(response.json["page_count"], 1)
+        self.assertEqual(response.json["row_count"], 2)
+        self.assertEqual(response.json["preview"], [POSITIVE, NEGATIVE])
+        self.assertEqual(inspect_pdf(2, ["a"]), {"page_count": 2, "row_count": 1, "preview": ["a"]})
+        response = self.upload(content)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["total_responses"], 2)
 
-    def test_csv_ambiguous_columns(self):
-        response = self.upload(f'text,feedback\n{POSITIVE},{NEGATIVE}\n'.encode())
-        self.assertEqual(response.status_code, 400)
-        self.assertTrue(response.json["details"]["requires_selection"])
+    def test_pdf_multipage_counts_and_preview_cap(self):
+        content = make_pdf([["first page only."], ["second page.", "third line."]])
+        response = self.upload(content, mode="inspect")
+        self.assertEqual(response.json["page_count"], 2)
+        self.assertEqual(response.json["row_count"], 3)
+        self.assertEqual(len(response.json["preview"]), 3)
+        content = pdf_bytes(["one.", "two.", "three.", "four.", "five.", "six."])
+        response = self.upload(content, mode="inspect")
+        self.assertEqual(response.json["row_count"], 6)
+        self.assertEqual(response.json["preview"], ["one.", "two.", "three.", "four.", "five."])
+        response = self.upload(content)
+        self.assertEqual(response.json["total_responses"], 6)
 
-    def test_csv_empty_and_malformed(self):
-        for content in (b"", b"text\n", b'text\n"unterminated', b"text,date\nwrong\n", b"text,Text\na,b\n", b"text\n\xff", b"text\n\x00"):
-            with self.subTest(content=content):
+    def test_pdf_invalid_and_without_text(self):
+        for content in (b"", b"not a pdf document at all", pdf_bytes(["   "]), pdf_bytes([""])):
+            with self.subTest(kind=content[:12]):
                 self.assertEqual(self.upload(content).status_code, 400)
 
-    def test_csv_optional_mapping_and_invalid_selections(self):
-        content = f'text,date,category\n{POSITIVE},2026-01-02,Water\n'.encode()
-        response = self.upload(content, date_column="", category_column="")
-        self.assertFalse(response.json["trends"]["available"])
-        self.assertFalse(response.json["categories"]["available"])
-        for fields in ({"text_column": "date", "date_column": "date"}, {"metadata_columns": "{}"},
-                       {"metadata_columns": '["missing"]'}, {"mode": "unknown"}):
-            with self.subTest(fields=fields):
-                self.assertEqual(self.upload(content, **fields).status_code, 400)
+    def test_pdf_lines_are_trimmed_and_preserved(self):
+        content = pdf_bytes(["  " + POSITIVE + "  ", "Rural (dept) feedback \\ with parens"])
+        response = self.upload(content)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["responses"][0]["text"], POSITIVE)
+        self.assertEqual(response.json["responses"][1]["text"], "Rural (dept) feedback \\ with parens")
+
+    def test_pdf_requires_supported_extension_and_mode(self):
+        content = pdf_bytes([POSITIVE])
+        response = self.client.post("/analyze-file", data={"file": (io.BytesIO(content), "responses.txt"), "mode": "analyze"}, content_type="multipart/form-data")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(".pdf or .xlsx", response.json["message"])
+        self.assertEqual(self.upload(content, mode="unknown").status_code, 400)
+        self.assertEqual(self.upload(content, mode="inspect").status_code, 200)
+
+    def test_pdf_limits(self):
+        with self.assertRaises(AnalysisError):
+            parse_pdf(io.BytesIO(b"x" * (MAX_PDF_BYTES + 1)))
+        with self.assertRaises(AnalysisError):
+            parse_pdf(io.BytesIO(pdf_bytes([f"line {i}" for i in range(MAX_BATCH_RESPONSES + 1)])))
+        response = self.client.post("/analyze", data=b" " * (MAX_ANALYSIS_REQUEST_BYTES + 1), content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.client.post("/analyze-file", json={}).status_code, 400)
+        self.assertEqual(self.client.post("/analyze-file", data={}, content_type="multipart/form-data").status_code, 400)
 
     def test_term_cap_is_reported(self):
         with patch("text_insights.MAX_DISCOVERED_TERMS", 1):
             result = analyze_batch(ROWS)
         self.assertTrue(result["analysis_notes"]["term_limit_reached"])
         self.assertEqual(result["total_responses"], len(ROWS))
-
-    def test_csv_empty_row_is_reported(self):
-        response = self.upload(f'text\n\n{POSITIVE}\n'.encode())
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json["rejected_count"], 1)
-        self.assertEqual(response.json["responses"][0]["row_index"], 2)
-
-    def test_csv_multiline_quotes_and_original_text(self):
-        text = "  " + POSITIVE + "\nPublic feedback.  "
-        response = self.upload(('\ufefftext\n"' + text + '"\n').encode())
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json["responses"][0]["text"], text)
-
-    def test_csv_and_http_limits(self):
-        with self.assertRaises(AnalysisError):
-            parse_csv(io.BytesIO(b"x" * (MAX_CSV_BYTES + 1)))
-        response = self.client.post("/analyze", data=b" " * (MAX_ANALYSIS_REQUEST_BYTES + 1), content_type="application/json")
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(self.client.post("/analyze-file", json={}).status_code, 400)
-        self.assertEqual(self.client.post("/analyze-file", data={}, content_type="multipart/form-data").status_code, 400)
 
     def test_batch_inference_chunk_parity(self):
         texts = [POSITIVE, "!!!", NEGATIVE, NEUTRAL] * 35

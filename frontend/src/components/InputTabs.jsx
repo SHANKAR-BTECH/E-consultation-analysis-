@@ -14,16 +14,6 @@ export default function InputTabs({ mode, onSelectTab, busy }) {
         Paste responses
       </button>
       <button
-        id="tab-csv"
-        role="tab"
-        aria-selected={mode === 'csv'}
-        aria-controls="pane-csv"
-        tabIndex={mode === 'csv' ? 0 : -1}
-        onClick={() => !busy && onSelectTab('csv')}
-      >
-        Upload CSV
-      </button>
-      <button
         id="tab-excel"
         role="tab"
         aria-selected={mode === 'excel'}
@@ -32,6 +22,16 @@ export default function InputTabs({ mode, onSelectTab, busy }) {
         onClick={() => !busy && onSelectTab('excel')}
       >
         Upload Excel
+      </button>
+      <button
+        id="tab-pdf"
+        role="tab"
+        aria-selected={mode === 'pdf'}
+        aria-controls="pane-pdf"
+        tabIndex={mode === 'pdf' ? 0 : -1}
+        onClick={() => !busy && onSelectTab('pdf')}
+      >
+        Upload PDF
       </button>
     </div>
   );

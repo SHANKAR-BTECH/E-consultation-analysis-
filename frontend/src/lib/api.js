@@ -109,7 +109,7 @@ export async function analyzeResponses(responses) {
   return validateAnalysis(data);
 }
 
-export async function inspectFile(file) {
+export async function inspectPdfFile(file) {
   const form = new FormData();
   form.append('file', file);
   form.append('mode', 'inspect');
@@ -119,23 +119,17 @@ export async function inspectFile(file) {
     body: form
   });
 
-  if (!Array.isArray(data?.columns) || !Number.isInteger(data?.row_count) || !object(data?.suggested_mapping)) {
-    throw new APIError('The service could not provide usable CSV columns. Please check the file.');
+  if (!Number.isInteger(data?.page_count) || !Number.isInteger(data?.row_count) || !Array.isArray(data?.preview)) {
+    throw new APIError('The service could not provide usable PDF text. Please check the file.');
   }
 
   return data;
 }
 
-export async function analyzeCsv(file, mapping, metadata = []) {
+export async function analyzePdf(file) {
   const form = new FormData();
   form.append('file', file);
   form.append('mode', 'analyze');
-
-  Object.entries(mapping).forEach(([key, value]) => {
-    form.append(key, value || '');
-  });
-
-  form.append('metadata_columns', JSON.stringify(metadata));
 
   const data = await request('/analyze-file', {
     method: 'POST',

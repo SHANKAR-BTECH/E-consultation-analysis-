@@ -11,6 +11,7 @@ from werkzeug.datastructures import MultiDict
 from config import MAX_INPUT_CHARACTERS, MAX_REQUEST_BYTES
 from model_service import ModelUnavailable, get_service
 from server import app
+from pdf_fixture import pdf_bytes
 
 
 POSITIVE = "The process was quick and very helpful."
@@ -45,7 +46,7 @@ class Phase5ContractTests(unittest.TestCase):
 
     def upload(self, content, **fields):
         return self.client.post('/analyze-file', content_type='multipart/form-data',
-                                data={"file": (io.BytesIO(content), "input.csv"), **fields})
+                                data={"file": (io.BytesIO(content), "input.pdf"), **fields})
 
     def assert_error(self, response, status=400, message=None, details=False):
         self.assertEqual(response.status_code, status)
@@ -251,74 +252,46 @@ class Phase5ContractTests(unittest.TestCase):
         self.assertEqual(body['categories'], {'available': False, 'reason': 'No categories in analyzed responses.',
             'categorized_responses': 0, 'uncategorized_responses': 1, 'groups': []})
 
-    def test_csv_inspection_does_not_infer_or_analyze_rows(self):
+    def test_pdf_inspection_does_not_infer_or_analyze_rows(self):
         with patch('analysis_service.get_service', side_effect=AssertionError('inspection must not load ML')):
-            response = self.upload(b'opinion,submitted,region\n!!!,bad,South\n', mode='inspect')
+            response = self.upload(pdf_bytes(['!!!', ' ', 'bad']), mode='inspect')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json, {'columns': ['opinion', 'submitted', 'region'], 'row_count': 1,
-            'suggested_mapping': {'text_column': None, 'date_column': None, 'category_column': None},
-            'candidates': {'text_column': [], 'date_column': [], 'category_column': []}, 'requires_selection': True})
+        self.assertEqual(response.json, {'page_count': 1, 'row_count': 2, 'preview': ['!!!', 'bad']})
 
-    def test_csv_mapped_success_is_same_envelope_as_json(self):
-        csv = f'opinion,submitted,dept,external,source,region\n{POSITIVE},03/04/2026,Water,same,survey,South\n'.encode()
-        response = self.upload(csv, text_column='opinion', date_column='submitted', category_column='dept',
-                               id_column='external', source_column='source', metadata_columns='["region"]')
+    def test_pdf_success_is_same_envelope_as_json(self):
+        content = pdf_bytes([POSITIVE, NEGATIVE])
+        response = self.upload(content)
         self.assertEqual(response.status_code, 200)
-        expected = self.analyze([{'text': POSITIVE, 'date': '03/04/2026', 'category': 'Water',
-                                 'id': 'same', 'source': 'survey', 'metadata': {'region': 'South'}}]).json
+        expected = self.analyze([{'text': POSITIVE}, {'text': NEGATIVE}]).json
         self.assertEqual(response.json, expected)
         self.assertEqual(set(response.json), ENVELOPE)
 
-    def test_csv_malformed_contract(self):
-        for payload in (b'', b'text\n', b'text\n"unterminated', b'text,date\nwrong\n',
-                        b'text,Text\nx,y\n', b'text\n\xff', b'text\n\x00'):
-            with self.subTest(payload=payload):
+    def test_pdf_malformed_contract(self):
+        for payload in (b'', b'not a pdf document', pdf_bytes(['   '])):
+            with self.subTest(payload=payload[:12]):
                 self.assert_error(self.upload(payload))
 
-    def test_csv_missing_ambiguous_and_unknown_mapping(self):
-        for header in ('opinion', 'text,feedback'):
-            payload = (header + '\n' + ','.join([POSITIVE] * len(header.split(','))) + '\n').encode()
-            body = self.assert_error(self.upload(payload), details=True,
-                                     message='Select the CSV feedback column using text_column.')
-            self.assertTrue(body['details']['requires_selection'])
-            self.assertEqual(body['details']['columns'], header.split(','))
-        self.assert_error(self.upload(f'text\n{POSITIVE}\n'.encode(), text_column='missing'), details=True,
-                          message='Selected text_column is not a CSV column.')
-
-    def test_csv_blank_mapping_disables_detection(self):
-        payload = f'text,date,category\n{POSITIVE},2026-01-01,Water\n'.encode()
-        detected = self.upload(payload).json
-        disabled = self.upload(payload, date_column='', category_column='').json
-        self.assertTrue(detected['trends']['available'])
-        self.assertTrue(detected['categories']['available'])
-        self.assertFalse(disabled['trends']['available'])
-        self.assertFalse(disabled['categories']['available'])
-
-    def test_csv_multiline_bom_blank_record_and_duplicate_upload(self):
-        text = '  ' + POSITIVE + '\nPublic feedback.  '
-        payload = ('\ufefftext\n\n"' + text + '"\n"' + text + '"\n').encode()
-        response = self.upload(payload)
-        self.assertEqual(response.status_code, 200)
-        body = response.json
-        self.assertEqual(body['total_received'], 3)
+    def test_pdf_upload_is_deterministic(self):
+        content = pdf_bytes(['  ' + POSITIVE + '  ', '!!!'])
+        body = self.upload(content).json
+        self.assertEqual(body['total_received'], 2)
         self.assertEqual(body['rejected_count'], 1)
-        self.assertEqual([r['row_index'] for r in body['responses']], [2, 3])
-        self.assertEqual([r['text'] for r in body['responses']], [text, text])
-        self.assertEqual(body, self.upload(payload).json)
+        self.assertEqual([r['text'] for r in body['responses']], [POSITIVE])
         self.assertTrue(all(r['source'] is None for r in body['responses']))
+        self.assertEqual(body, self.upload(content).json)
 
-    def test_csv_requires_one_file_and_valid_mode(self):
+    def test_pdf_requires_one_file_and_valid_mode(self):
         self.assert_error(self.client.post('/analyze-file', json={}))
         self.assert_error(self.client.post('/analyze-file', data={}, content_type='multipart/form-data'))
-        files = MultiDict([('file', (io.BytesIO(b'text\nx\n'), 'one.csv')),
-                           ('file', (io.BytesIO(b'text\ny\n'), 'two.csv'))])
+        files = MultiDict([('file', (io.BytesIO(pdf_bytes(['x'])), 'one.pdf')),
+                           ('file', (io.BytesIO(pdf_bytes(['y'])), 'two.pdf'))])
         self.assert_error(self.client.post('/analyze-file', data=files, content_type='multipart/form-data'),
                           message='Submit exactly one file in the file field.')
-        self.assert_error(self.upload(b'text\nx\n', mode='save'), message='mode must be inspect or analyze.')
+        self.assert_error(self.upload(pdf_bytes([POSITIVE]), mode='save'), message='mode must be inspect or analyze.')
 
     def test_analysis_routes_unavailable_and_generic_failure(self):
-        for route in ('json', 'csv'):
-            send = (lambda: self.analyze(ROWS)) if route == 'json' else (lambda: self.upload(f'text\n{POSITIVE}\n'.encode()))
+        for route in ('json', 'pdf'):
+            send = (lambda: self.analyze(ROWS)) if route == 'json' else (lambda: self.upload(pdf_bytes([POSITIVE])))
             with self.subTest(route=route):
                 with patch('analysis_service.get_service', side_effect=ModelUnavailable('Model unavailable.')):
                     self.assert_error(send(), 503, 'Model unavailable.')

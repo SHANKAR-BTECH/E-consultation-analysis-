@@ -1,7 +1,7 @@
 // Characterize React helpers without changing frontend files or starting a browser.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {checkHealth, predictFeedback, analyzeResponses, inspectFile, analyzeCsv,
+import {checkHealth, predictFeedback, analyzeResponses, inspectPdfFile, analyzePdf,
   inspectExcelFile, analyzeExcel, validateAnalysis, APIError} from '../frontend/src/lib/api.js';
 import {parseResponses} from '../frontend/src/lib/utils.js';
 import {extractRequests, extractNegativeIssues, synthesizeRecommendations}
@@ -42,22 +42,19 @@ test('React paste analysis keeps schema 2.0 and strings-to-records payload', asy
   assert.ok(calls[0].options.signal instanceof AbortSignal);
 });
 
-test('CSV inspection and analysis resend file and preserve explicit blank mappings', async t => {
-  const file = new File(['text\nHelpful.\n'], 'fixture.csv', {type:'text/csv'});
-  const calls = intercept(t, {columns:['text'],row_count:1,suggested_mapping:{text_column:'text'}});
-  await inspectFile(file);
+test('PDF inspection and analysis resend file and validate preview shape', async t => {
+  const file = new File(['%PDF-1.4'], 'fixture.pdf', {type:'application/pdf'});
+  const calls = intercept(t, {page_count:1,row_count:1,preview:['Helpful.']});
+  await inspectPdfFile(file);
   assert.equal(calls[0].path, '/analyze-file');
   assert.equal(calls[0].options.body.get('mode'), 'inspect');
-  assert.equal(calls[0].options.body.get('file').name, 'fixture.csv');
+  assert.equal(calls[0].options.body.get('file').name, 'fixture.pdf');
   t.mock.restoreAll();
   const analyzed = intercept(t, minimal);
-  await analyzeCsv(file, {text_column:'text',date_column:'',category_column:''}, ['region']);
+  await analyzePdf(file);
   const form = analyzed[0].options.body;
   assert.equal(form.get('mode'), 'analyze');
-  assert.equal(form.get('file').name, 'fixture.csv');
-  assert.equal(form.get('date_column'), '');
-  assert.equal(form.get('category_column'), '');
-  assert.equal(form.get('metadata_columns'), '["region"]');
+  assert.equal(form.get('file').name, 'fixture.pdf');
 });
 
 test('Excel inspection and analysis send file, sheet and preserve blank mappings', async t => {

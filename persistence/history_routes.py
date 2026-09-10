@@ -1,7 +1,6 @@
-"""Additive read-only HTTP history; never loads models or starts analysis."""
+"""Read-only HTTP history; never loads models or starts analysis."""
 from uuid import UUID
 
-import sqlalchemy as sa
 from flask import Blueprint, current_app, jsonify
 
 from .service import PersistenceService
@@ -17,16 +16,15 @@ def no_cache(response):
 
 def read(command, *identities):
     try:
-        ids = [UUID(value) for value in identities]
-    except ValueError:
+        ids = [str(UUID(value)) for value in identities]
+    except (ValueError, AttributeError, TypeError):
         return jsonify(error=True, message='Invalid consultation or run identifier.'), 400
     database = current_app.extensions.get('consultation_database')
     if database is None:
-        return jsonify(error=True, message='Consultation history is unavailable. Configure DATABASE_URL.'), 503
+        return jsonify(error=True, message='Consultation history is unavailable.'), 503
     try:
-        with database.transaction() as session:
-            session.execute(sa.text('SET TRANSACTION READ ONLY'))
-            result = command(PersistenceService(session), *ids)
+        with database.transaction() as connection:
+            result = command(PersistenceService(connection), *ids)
         if result is None:
             return jsonify(error=True, message='Consultation or run not found.'), 404
         return jsonify(result)

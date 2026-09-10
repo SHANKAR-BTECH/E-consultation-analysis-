@@ -50,18 +50,15 @@ export async function request(path, options={}, fetcher=fetch) {
 export async function analyzeResponses(responses) {
   return validateAnalysis(await request('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({responses:responses.map(text=>({text}))})}));
 }
-export async function inspectFile(file) {
+export async function inspectPdfFile(file) {
   const form = new FormData(); form.append('file',file);form.append('mode','inspect');
   const data = await request('/analyze-file',{method:'POST',body:form});
-  if (!Array.isArray(data?.columns) || !data.columns.every(c=>typeof c==='string') || !Number.isInteger(data.row_count) || !object(data.suggested_mapping))
-    throw new APIError('The service could not provide usable CSV columns. Please check the file.');
+  if (!Number.isInteger(data?.page_count) || !Number.isInteger(data.row_count) || !Array.isArray(data.preview) || !data.preview.every(v=>typeof v==='string'))
+    throw new APIError('The service could not provide usable PDF text. Please check the file.');
   return data;
 }
-export async function analyzeFile(file,mapping,metadata) {
+export async function analyzePdfFile(file) {
   const form = new FormData();form.append('file',file);form.append('mode','analyze');
-  // Explicit empty optional values disable auto-detection in the backend.
-  Object.entries(mapping).forEach(([key,value])=>form.append(key,value));
-  form.append('metadata_columns',JSON.stringify(metadata));
   return validateAnalysis(await request('/analyze-file',{method:'POST',body:form}));
 }
 export async function inspectExcelFile(file, sheet='') {

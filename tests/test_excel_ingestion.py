@@ -1,18 +1,16 @@
 """Excel (.xlsx) workbook ingestion: parsing, mapping, API and persistence contracts."""
 import io
+import json
 import unittest
-from datetime import datetime
-from unittest.mock import patch
-from uuid import uuid4
-
-import sqlalchemy as sa
 from flask import jsonify
+from datetime import datetime
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from analysis_service import AnalysisError
 from config import MAX_BATCH_RESPONSES, MAX_EXCEL_BYTES
 from excel_ingestion import parse_excel, inspect_excel_columns, map_excel
-from persistence import repository as repo
-from persistence import schema_v1 as s
 from persistence.database import Database
 from persistence.service import PersistenceService
 from server import app
@@ -196,7 +194,7 @@ class ExcelApiTests(unittest.TestCase):
 
     def test_invalid_extension_and_multipart_contract(self):
         self.assert_error(self.upload(b'text\nx\n', filename='notes.txt'),
-                          message='Uploaded file must have a .csv or .xlsx filename.')
+                          message='Uploaded file must have a .pdf or .xlsx filename.')
         self.assert_error(self.client.post('/analyze-file', json={}),
                           message='Submit a file as multipart/form-data with a file field.')
         self.assert_error(self.upload(workbook_bytes([("S", [["feedback"], [POSITIVE]])]), mode='save'),
@@ -235,34 +233,50 @@ class ExcelApiTests(unittest.TestCase):
 
 
 class ExcelPersistenceTests(unittest.TestCase):
-    def test_persistence_accepts_excel_source_type(self):
-        checks = [c for c in s.imports.constraints
-                  if isinstance(c, sa.CheckConstraint) and c.name == 'ck_imports_source_type']
-        self.assertEqual(len(checks), 1)
-        self.assertIn("'excel'", str(checks[0].sqltext))
+    def setUp(self):
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.db = Database(str(Path(self.tmp.name) / 'history.sqlite3'))
+        self.addCleanup(self.db.close)
 
     def test_service_import_accepts_excel_provenance(self):
-        from unittest.mock import MagicMock
-        session = MagicMock()
-        session.in_transaction.return_value = True
-        session.connection.return_value.get_isolation_level.return_value = 'READ COMMITTED'
-        service = PersistenceService(session)
-        with patch.object(repo, 'create_import', return_value=(uuid4(), [uuid4()])) as create:
-            service.create_import(uuid4(), [{'text': POSITIVE}], source_type='excel',
-                                  raw_records=[{'feedback': POSITIVE}], raw_bytes=b'xlsx bytes',
-                                  source_metadata={'headers': ['feedback'], 'file_type': 'xlsx'})
-        self.assertEqual(create.call_args.kwargs['source_type'], 'excel')
-        self.assertEqual(create.call_args.kwargs['source_metadata']['file_type'], 'xlsx')
+        with self.db.transaction() as connection:
+            service = PersistenceService(connection)
+            consultation_id = service.create_consultation('Excel test')
+            import_id = service.create_import(
+                consultation_id, [{'text': POSITIVE}], source_type='excel',
+                raw_records=[{'feedback': POSITIVE}], raw_bytes=b'xlsx bytes',
+                source_metadata={'headers': ['feedback'], 'file_type': 'xlsx'},
+                mapping={'text_column': 'feedback'})
+        self.assertEqual(len(import_id), 36)
+        with self.db.transaction() as connection:
+            row = connection.execute(
+                'SELECT source_type, original_filename, record_count, source_metadata, mapping FROM imports WHERE id = ?',
+                (import_id,)).fetchone()
+            self.assertEqual(row['source_type'], 'excel')
+            self.assertEqual(row['original_filename'], None)
+            self.assertEqual(row['record_count'], 1)
+            self.assertEqual(json.loads(row['source_metadata'])['file_type'], 'xlsx')
+            self.assertEqual(json.loads(row['mapping'])['text_column'], 'feedback')
 
-    def test_database_constructor_and_schema_compile_with_excel_check(self):
-        db = Database('postgresql://localhost/unused_offline_excel_test')
-        try:
-            with db.sessions() as session:
-                with self.assertRaisesRegex(RuntimeError, 'explicit'):
-                    PersistenceService(session).create_import(uuid4(), [{'text': 'x'}],
-                                                              source_type='excel')
-        finally:
-            db.close()
+    def test_excel_and_pdf_source_types_store_runs(self):
+        from pdf_ingestion import map_pdf
+        with self.db.transaction() as connection:
+            service = PersistenceService(connection)
+            consultation_id = service.create_consultation('Excel run test')
+            other = service.create_consultation('PDF run test')
+            excel_import = service.create_import(consultation_id, [{'text': POSITIVE}], source_type='excel',
+                                                 source_metadata={'file_type': 'xlsx'})
+            pdf_import = service.create_import(other, map_pdf(['nice.']), source_type='pdf',
+                                               source_metadata={'file_type': 'pdf'})
+            excel_run = service.create_run(consultation_id, [{'text': POSITIVE}], {'version': 'excel-run'})
+            pdf_run = service.create_run(other, [{'text': 'nice.'}], {'version': 'pdf-run'})
+            service.complete_run(excel_run, {'total_responses': 1})
+            service.complete_run(pdf_run, {'total_responses': 1})
+        self.assertTrue(excel_import)
+        self.assertTrue(pdf_import)
+        self.assertEqual(len(excel_run), 36)
+        self.assertEqual(len(pdf_run), 36)
 
 
 class ExcelFrontendTests(unittest.TestCase):

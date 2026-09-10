@@ -2,7 +2,7 @@ import React from 'react';
 import Hero from './Hero.jsx';
 import InputTabs from './InputTabs.jsx';
 import PasteResponses from './PasteResponses.jsx';
-import CsvUpload from './CsvUpload.jsx';
+import PdfUpload from './PdfUpload.jsx';
 import ExcelUpload from './ExcelUpload.jsx';
 import { SAMPLE_LABELS } from '../lib/presets.js';
 
@@ -18,16 +18,12 @@ export default function AnalysisWorkspace({
   characterCount,
   onClearText,
   onSubmitText,
-  // CSV
-  file,
-  inspection,
-  mapping,
-  metadataColumns,
-  onFileSelected,
-  onRemoveFile,
-  onMappingChange,
-  onToggleMetadata,
-  onSubmitCsv,
+  // PDF
+  pdfFile,
+  pdfInspection,
+  onPdfFileSelected,
+  onRemovePdfFile,
+  onSubmitPdf,
   // Excel
   excelFile,
   excelInspection,
@@ -68,17 +64,13 @@ export default function AnalysisWorkspace({
           />
         )}
 
-        {mode === 'csv' && (
-          <CsvUpload
-            file={file}
-            inspection={inspection}
-            mapping={mapping}
-            metadataColumns={metadataColumns}
-            onFileSelected={onFileSelected}
-            onRemoveFile={onRemoveFile}
-            onMappingChange={onMappingChange}
-            onToggleMetadata={onToggleMetadata}
-            onSubmit={onSubmitCsv}
+        {mode === 'pdf' && (
+          <PdfUpload
+            file={pdfFile}
+            inspection={pdfInspection}
+            onFileSelected={onPdfFileSelected}
+            onRemoveFile={onRemovePdfFile}
+            onSubmit={onSubmitPdf}
             busy={busy}
           />
         )}
@@ -123,7 +115,7 @@ export default function AnalysisWorkspace({
         <div id="empty-state" className="workspace-foot">
           <p>No consultation analyzed yet.</p>
           <p>
-            Paste responses, upload a CSV or upload an Excel workbook to begin.
+            Paste responses, upload a PDF or upload an Excel workbook to begin.
             <span> English-language prototype · Original evidence retained</span>
           </p>
         </div>

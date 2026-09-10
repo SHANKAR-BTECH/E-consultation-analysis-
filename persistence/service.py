@@ -1,148 +1,141 @@
-"""Transaction-scoped persistence commands for trusted backend callers.
+"""Persistence commands over one SQLite connection.
 
-Construct inside ``with database.transaction() as session``. No inference, HTTP,
-implicit commits, or database initialization happens here.
+Construct inside ``with database.transaction() as connection``. History reads
+and analysis commits keep the same public record shapes as the earlier
+PostgreSQL implementation so the HTTP contract does not change.
 """
-from copy import deepcopy
-
-import sqlalchemy as sa
-
-from . import repository as repo, schema_v1 as s
-from . import history
+import hashlib
+import json
+import uuid
+from datetime import datetime, timezone
 
 
-def _text(value, name, limit):
-    if not isinstance(value, str) or not value.strip() or len(value) > limit:
-        raise ValueError(f'{name} must be nonempty text of at most {limit} characters.')
-    return value
+def utc_now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _manifest(value):
+    if not isinstance(value, dict) or not value:
+        raise ValueError('A nonempty pinned model/rules manifest is required.')
+    return json.dumps(value)
 
 
 class PersistenceService:
-    def __init__(self, session):
-        self.session = session
-
-    def _transaction(self):
-        if not self.session.in_transaction():
-            raise RuntimeError('Use an explicit Database.transaction() context.')
-
-    def list_consultations(self):
-        self._transaction()
-        return history.list_consultations(self.session)
-
-    def get_consultation(self, consultation_id):
-        self._transaction()
-        return history.get_consultation(self.session, consultation_id)
-
-    def get_run(self, consultation_id, run_id):
-        self._transaction()
-        return history.get_run(self.session, consultation_id, run_id)
+    def __init__(self, connection):
+        self.connection = connection
 
     def create_consultation(self, title):
-        self._transaction()
-        return repo.create_consultation(self.session, _text(title, 'Title', 256))
+        if not isinstance(title, str) or not title.strip() or len(title) > 256:
+            raise ValueError('Title must be nonempty text of at most 256 characters.')
+        consultation_id = str(uuid.uuid4())
+        now = utc_now_iso()
+        self.connection.execute(
+            'INSERT INTO consultations (id, title, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+            (consultation_id, title.strip(), 'ACTIVE', now, now))
+        return consultation_id
 
     def create_import(self, consultation_id, records, **provenance):
-        """Persist every response occurrence and seal its import atomically.
-
-        Pass raw_records/raw_bytes, mapping, source_metadata, source_type and
-        filename as available. Invalid analysis rows are legitimate source data.
-        """
-        self._transaction()
-        records = deepcopy(records)
-        provenance = deepcopy(provenance)
-        if provenance.get('source_type', 'json') not in ('json', 'paste', 'csv', 'excel'):
+        """Persist a delivery's raw records and document metadata."""
+        source_type = provenance.get('source_type', 'json')
+        if source_type not in ('json', 'paste', 'excel', 'pdf'):
             raise ValueError('Unknown import source type.')
-        for name in ('mapping', 'source_metadata'):
-            value = provenance.get(name)
-            if value is not None and not isinstance(value, dict):
-                raise ValueError(f'{name} must be an object.')
-            repo.checksum(value)
-        raw = provenance.get('raw_records')
-        if raw is not None and not isinstance(raw, list):
-            raise ValueError('raw_records must be an ordered list.')
-        repo.checksum(raw)
-        with self.session.begin_nested():
-            return repo.create_import(self.session, consultation_id, records, **provenance)
+        import_id = str(uuid.uuid4())
+        raw_bytes = provenance.get('raw_bytes')
+        checksum = hashlib.sha256(raw_bytes).hexdigest() if raw_bytes is not None else None
+        source_metadata = provenance.get('source_metadata')
+        mapping = provenance.get('mapping')
+        self.connection.execute(
+            'INSERT INTO imports (id, consultation_id, source_type, original_filename, raw_bytes,'
+            ' raw_checksum, source_metadata, mapping, parser_version, record_count, created_at)'
+            ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (import_id, consultation_id, source_type, provenance.get('filename'),
+             raw_bytes, checksum,
+             json.dumps(source_metadata) if source_metadata else None,
+             json.dumps(mapping) if mapping else None,
+             'mapped-input-v1', len(records), utc_now_iso()))
+        return import_id
 
-    def create_snapshot(self, consultation_id, response_ids):
-        self._transaction()
-        with self.session.begin_nested():
-            return repo.create_snapshot(self.session, consultation_id, list(response_ids))
-
-    def create_run(self, snapshot_id, model_manifest):
-        self._transaction()
-        if not isinstance(model_manifest, dict) or not model_manifest:
-            raise ValueError('A nonempty pinned model/rules manifest is required.')
-        repo.checksum(model_manifest)
-        return repo.create_run(self.session, snapshot_id, model_manifest)
-
-    def retry_run(self, failed_run_id):
-        """New identity, same snapshot and pinned manifest; never reset a run."""
-        self._transaction()
-        return repo.retry_run(self.session, failed_run_id)
+    def create_run(self, consultation_id, records, manifest):
+        run_id = str(uuid.uuid4())
+        self.connection.execute(
+            'INSERT INTO analysis_runs (id, consultation_id, status, response_count, accepted_count,'
+            ' model_manifest, created_at, started_at, ended_at, failure, result_json, result_hash)'
+            ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (run_id, consultation_id, 'PENDING', len(records), None, _manifest(manifest),
+             utc_now_iso(), None, None, None, None, None))
+        return run_id
 
     def start_run(self, run_id):
-        self._transaction()
-        repo.start_run(self.session, run_id)
-
-    def fail_run(self, run_id, *, code, message):
-        """After result rollback, record a caller-sanitized failure separately."""
-        self._transaction()
-        repo.fail_run(self.session, run_id, code=_text(code, 'Failure code', 80),
-                      message=_text(message, 'Safe failure message', 1000))
+        self.connection.execute(
+            "UPDATE analysis_runs SET status='RUNNING', started_at=? WHERE id=? AND status='PENDING'",
+            (utc_now_iso(), run_id))
 
     def complete_run(self, run_id, result):
-        """Persist evaluations, predictions, findings, evidence and result together.
+        if not isinstance(result, dict):
+            raise ValueError('A result object is required.')
+        encoded = json.dumps(result)
+        accepted = result.get('total_responses') if isinstance(result.get('total_responses'), int) else None
+        self.connection.execute(
+            "UPDATE analysis_runs SET status='COMPLETED', accepted_count=?, ended_at=?, result_json=?, result_hash=?"
+            ' WHERE id=?',
+            (accepted, utc_now_iso(), encoded, hashlib.sha256(encoded.encode()).hexdigest(), run_id))
 
-        Only trusted server-computed schema-2.0 results belong here. PostgreSQL
-        verifies the entire graph at outer commit. No partial result APIs exist.
-        """
-        self._transaction()
-        repo.complete_run(self.session, run_id, result)
+    def fail_run(self, run_id, *, code, message):
+        self.connection.execute(
+            "UPDATE analysis_runs SET status='FAILED', ended_at=?, failure=? WHERE id=?",
+            (utc_now_iso(), json.dumps({'code': code, 'message': message}), run_id))
 
-    def check_operation(self, *, scope, kind, key, request):
-        """Read a receipt or None; absence alone is not a reservation."""
-        self._transaction()
-        _text(scope, 'Scope', 128)
-        _text(kind, 'Operation kind', 80)
-        _text(key, 'Operation key', 128)
-        fingerprint = repo.checksum(request)
-        row = self.session.execute(sa.select(s.operation_receipts).where(
-            s.operation_receipts.c.scope == scope,
-            s.operation_receipts.c.operation_kind == kind,
-            s.operation_receipts.c.operation_key == key)).mappings().one_or_none()
-        if row is not None and row['fingerprint'] != fingerprint:
-            raise repo.IdempotencyConflict('Operation key already belongs to a different payload.')
-        return dict(row) if row is not None else None
+    def list_consultations(self):
+        rows = self.connection.execute("""
+            SELECT c.id, c.title, c.status, c.created_at, c.updated_at,
+                   r.id AS run_id, r.status AS run_status, r.created_at AS run_created_at,
+                   r.started_at AS run_started_at, r.ended_at AS run_ended_at,
+                   r.failure AS run_failure, r.response_count AS run_response_count,
+                   r.accepted_count AS run_accepted_count
+            FROM consultations c
+            LEFT JOIN analysis_runs r ON r.id = (
+                SELECT r2.id FROM analysis_runs r2 WHERE r2.consultation_id = c.id
+                ORDER BY r2.created_at DESC, r2.id DESC LIMIT 1)
+            ORDER BY c.created_at DESC, c.id DESC""").fetchall()
+        return [self._consultation_row(row) for row in rows]
 
-    def execute_operation(self, *, scope, kind, key, request, command):
-        """Check, execute and record one delivery within the caller's transaction.
+    def get_consultation(self, consultation_id):
+        row = self.connection.execute(
+            'SELECT id, title, status, created_at, updated_at FROM consultations WHERE id = ?',
+            (consultation_id,)).fetchone()
+        if row is None:
+            return None
+        runs = self.connection.execute(
+            'SELECT id, status, created_at, started_at, ended_at, failure, response_count, accepted_count'
+            ' FROM analysis_runs WHERE consultation_id = ? ORDER BY created_at DESC, id DESC',
+            (consultation_id,)).fetchall()
+        return {**dict(row), 'runs': [self._run_row(run) for run in runs]}
 
-        command(service) returns record_operation keyword arguments: typed target
-        IDs, receipt and optional status. It must only write through this session;
-        no inference, network calls or other external side effects. request must
-        include every semantic command input (including pinned manifest/provenance).
-        One command per transaction; all cooperating callers use this entry point.
-        """
-        self._transaction()
-        _text(scope, 'Scope', 128)
-        _text(kind, 'Operation kind', 80)
-        _text(key, 'Operation key', 128)
-        request = deepcopy(request)
-        fingerprint = repo.checksum(request)
-        # Separate statements under READ COMMITTED see a winner's receipt after
-        # waiting for its transaction lock. Higher isolation can retain stale reads.
-        if self.session.connection().get_isolation_level() != 'READ COMMITTED':
-            raise ValueError('Idempotent commands require READ COMMITTED isolation.')
-        lock = int(repo.checksum(['phase5-operation-v1', scope, kind, key])[:16], 16)
-        if lock >= 2 ** 63:
-            lock -= 2 ** 64
-        with self.session.begin_nested():
-            self.session.execute(sa.select(sa.func.pg_advisory_xact_lock(
-                sa.bindparam('operation_lock', lock, type_=sa.BigInteger))))
-            saved = self.check_operation(scope=scope, kind=kind, key=key, request=request)
-            if saved is not None:
-                return saved
-            targets = command(self)
-            return repo.record_operation(self.session, scope=scope, kind=kind, key=key,
-                                         fingerprint=fingerprint, **targets)
+    def get_run(self, consultation_id, run_id):
+        row = self.connection.execute(
+            'SELECT id, status, created_at, started_at, ended_at, failure, response_count,'
+            ' accepted_count, result_json FROM analysis_runs WHERE id = ? AND consultation_id = ?',
+            (run_id, consultation_id)).fetchone()
+        if row is None:
+            return None
+        run = self._run_row(row)
+        result = json.loads(row['result_json']) if row['result_json'] else None
+        return {'run': run, 'result': result if run['status'] == 'COMPLETED' else None}
+
+    def _consultation_row(self, row):
+        return {
+            'id': row['id'], 'title': row['title'], 'status': row['status'],
+            'created_at': row['created_at'], 'updated_at': row['updated_at'],
+            'latest_run': self._run_row(row, prefix='run_') if row['run_id'] is not None else None,
+        }
+
+    def _run_row(self, row, prefix=''):
+        failure = row[prefix + 'failure']
+        return {
+            'id': row[prefix + 'id'], 'status': row[prefix + 'status'],
+            'created_at': row[prefix + 'created_at'], 'started_at': row[prefix + 'started_at'],
+            'ended_at': row[prefix + 'ended_at'],
+            'failure': json.loads(failure) if failure else None,
+            'response_count': row[prefix + 'response_count'],
+            'accepted_count': row[prefix + 'accepted_count'],
+        }

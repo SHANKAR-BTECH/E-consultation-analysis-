@@ -1,28 +1,13 @@
-"""History contracts and opt-in read-only verification of existing PostgreSQL data."""
-import os
+"""History contracts and read-only verification against the local SQLite store."""
 import unittest
-from datetime import datetime
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import sqlalchemy as sa
-
-from persistence.database import Database, database_url
-from persistence import history, schema_v1 as s
+from persistence.database import Database
+from persistence.service import PersistenceService
 from server import app
-
-
-def import_row(**source_metadata):
-    """Row shape as returned by a mappings() select of imports."""
-    return dict(id=uuid4(), consultation_id=uuid4(), source_type='json',
-                original_filename=None, raw_bytes=None, raw_checksum=None,
-                source_metadata=source_metadata, mapping={}, parser_version='mapped-input-v1',
-                record_count=2, sealed_at=None)
-
-
-def consultation_row():
-    return dict(id=uuid4(), title='Stored consultation', status='ACTIVE',
-                created_at=datetime(2026, 9, 9), updated_at=datetime(2026, 9, 9))
 
 
 class HistoryAPITests(unittest.TestCase):
@@ -32,9 +17,10 @@ class HistoryAPITests(unittest.TestCase):
         extensions = patch.dict(app.extensions, {'consultation_database': self.db})
         extensions.start()
         self.addCleanup(extensions.stop)
-        service = patch('persistence.history_routes.PersistenceService')
-        self.service = service.start().return_value
-        self.addCleanup(service.stop)
+        service_patch = patch('persistence.history_routes.PersistenceService')
+        self.service_table = service_patch.start()
+        self.service = self.service_table.return_value
+        self.addCleanup(service_patch.stop)
         self.cid, self.rid = str(uuid4()), str(uuid4())
 
     def test_empty_list_and_read_only_no_cache(self):
@@ -43,8 +29,8 @@ class HistoryAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json, {'consultations': []})
         self.assertEqual(response.headers['Cache-Control'], 'no-store')
-        session = self.db.transaction.return_value.__enter__.return_value
-        self.assertEqual(str(session.execute.call_args.args[0]), 'SET TRANSACTION READ ONLY')
+        connection = self.db.transaction.return_value.__enter__.return_value
+        self.service_table.assert_called_once_with(connection)
 
     def test_detail_and_completed_run_pass_through(self):
         detail = {'id': self.cid, 'title': 'Stored consultation', 'runs': []}
@@ -92,53 +78,53 @@ class HistoryAPITests(unittest.TestCase):
         self.db.transaction.assert_not_called()
 
 
-@unittest.skipUnless(os.environ.get('RUN_POSTGRES_INTEGRATION') == '1', 'real PostgreSQL opt-in required')
-class PostgreSQLHistoryTests(unittest.TestCase):
+class SQLiteHistoryTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.db = Database(str(Path(self.tmp.name) / 'history.sqlite3'))
+        self.addCleanup(self.db.close)
+
+    def seed(self):
+        with self.db.transaction() as connection:
+            service = PersistenceService(connection)
+            cid = service.create_consultation('Stored SQLite consultation')
+            aid = service.create_consultation('Another consultation')
+            rid = service.create_run(cid, [{'text': 'Good and helpful service.'}], {'version': 'test'})
+            service.complete_run(rid, {'total_responses': 1})
+            fid = service.create_run(aid, [{'text': 'Dropped.'}], {'version': 'test'})
+            service.fail_run(fid, code='PERSISTENCE_FAILED', message='Result persistence did not complete successfully.')
+        return cid, rid, aid, fid
+
     def test_existing_history_is_scoped_exact_and_read_only(self):
-        url = database_url()
-        self.assertEqual(url.database, 'e_consultation')
-        self.assertIn(url.host, ('localhost', '127.0.0.1', '::1'))
-        db = Database()
-        self.addCleanup(db.close)
-        with db.transaction() as session:
-            before = {name: session.scalar(sa.select(sa.func.count()).select_from(table))
-                      for name, table in s.metadata.tables.items()}
-            expected_ids = [str(identity) for identity in session.scalars(
-                sa.select(s.consultations.c.id).order_by(
-                    s.consultations.c.created_at.desc(), s.consultations.c.id.desc()))]
-            completed = session.execute(sa.select(s.analysis_runs).where(
-                s.analysis_runs.c.status == 'COMPLETED').order_by(s.analysis_runs.c.created_at).limit(1)).mappings().one()
-            failed = session.execute(sa.select(s.analysis_runs).where(
-                s.analysis_runs.c.status == 'FAILED').limit(1)).mappings().one()
-        with patch.dict(app.extensions, {'consultation_database': db}), \
+        cid, rid, aid, fid = self.seed()
+        with patch.dict(app.extensions, {'consultation_database': self.db}), \
                 patch('server.get_service', side_effect=AssertionError('History must not load ML')), \
                 patch('server.analyze_batch', side_effect=AssertionError('History must not analyze')):
             client = app.test_client()
-            response = client.get('/consultations')
-            self.assertEqual(response.status_code, 200, response.json)
-            items = response.json['consultations']
-            self.assertEqual(len(items), before['consultations'])
-            self.assertEqual([item['id'] for item in items], expected_ids)
-            self.assertTrue(all('result_json' not in str(item.keys()) for item in items))
-            cid, rid = completed['consultation_id'], completed['id']
+            items = client.get('/consultations').json['consultations']
+            self.assertEqual(len(items), 2)
+            self.assertTrue(all('result_json' not in item for item in items))
+            latest = {item['id']: item['latest_run'] for item in items}
+            self.assertEqual(latest[cid]['status'], 'COMPLETED')
+            self.assertEqual(latest[aid]['status'], 'FAILED')
             detail = client.get(f'/consultations/{cid}')
             self.assertEqual(detail.status_code, 200, detail.json)
-            self.assertIn(str(rid), [run['id'] for run in detail.json['runs']])
+            self.assertIn(rid, [run['id'] for run in detail.json['runs']])
             saved = client.get(f'/consultations/{cid}/runs/{rid}')
             self.assertEqual(saved.status_code, 200, saved.json)
-            self.assertEqual(saved.json['result'], completed['result_json'])
-            self.assertEqual(saved.json['run']['response_count'], completed['result_json']['total_received'])
-            self.assertEqual(saved.json['run']['accepted_count'], completed['result_json']['total_responses'])
+            self.assertEqual(saved.json['result']['total_responses'], 1)
+            self.assertEqual(saved.json['run']['response_count'], 1)
+            self.assertEqual(saved.json['run']['accepted_count'], 1)
+            failed = client.get(f'/consultations/{aid}/runs/{fid}')
+            self.assertEqual(failed.status_code, 200, failed.json)
+            self.assertEqual(failed.json['run']['status'], 'FAILED')
+            self.assertIsNone(failed.json['result'])
             self.assertEqual(client.get(f'/consultations/{uuid4()}/runs/{rid}').status_code, 404)
             self.assertEqual(client.get(f'/consultations/{uuid4()}').status_code, 404)
-            failed_response = client.get(f"/consultations/{failed['consultation_id']}/runs/{failed['id']}")
-            self.assertEqual(failed_response.status_code, 200)
-            self.assertIsNone(failed_response.json['result'])
-            self.assertEqual(failed_response.json['run']['status'], 'FAILED')
-        with db.transaction() as session:
-            after = {name: session.scalar(sa.select(sa.func.count()).select_from(table))
-                     for name, table in s.metadata.tables.items()}
-        self.assertEqual(before, after)
+        with self.db.transaction() as connection:
+            remaining = len(PersistenceService(connection).list_consultations())
+        self.assertEqual(remaining, 2)
 
 
 if __name__ == '__main__':

@@ -95,7 +95,7 @@ def inspect_excel_columns(sheet_names, columns, rows):
 
 
 def map_excel(columns, rows, options):
-    """Map Excel columns to response records using the same logic as CSV."""
+    """Map Excel columns to response records using the same logic as PDF."""
     inspection = inspect_excel_columns([], columns, rows)
     selected = {}
     for role in (*ALIASES, "id_column", "source_column"):

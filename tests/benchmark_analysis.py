@@ -33,16 +33,13 @@ def main():
         assert all(item["mentions"] <= len(rows) for item in result["issues"])
         print(json.dumps({"case": name, "rows": len(rows), "input_characters": sum(len(row["text"]) for row in rows),
                           "elapsed_seconds": round(elapsed, 3), "response_bytes": len(response.data)}))
-    csv_buffer = io.StringIO(newline="")
-    writer = csv.writer(csv_buffer)
-    writer.writerow(["feedback"])
-    for i in range(MAX_BATCH_RESPONSES):
-        writer.writerow([dataset[i % len(dataset)]["text"]])
+    from pdf_fixture import make_pdf
+    pdf = make_pdf([[dataset[i % len(dataset)]["text"] for i in range(MAX_BATCH_RESPONSES)]])
     started = time.perf_counter()
-    response = client.post("/analyze-file", data={"file": (io.BytesIO(csv_buffer.getvalue().encode()), "benchmark.csv")}, content_type="multipart/form-data")
+    response = client.post("/analyze-file", data={"file": (io.BytesIO(pdf), "benchmark.pdf")}, content_type="multipart/form-data")
     assert response.status_code == 200, response.json
     assert response.json["total_responses"] == MAX_BATCH_RESPONSES
-    print(json.dumps({"case": "csv_at_row_limit", "rows": MAX_BATCH_RESPONSES,
+    print(json.dumps({"case": "pdf_at_row_limit", "rows": MAX_BATCH_RESPONSES,
                       "elapsed_seconds": round(time.perf_counter() - started, 3), "response_bytes": len(response.data)}))
 
 

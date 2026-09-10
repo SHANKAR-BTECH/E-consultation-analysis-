@@ -9,14 +9,14 @@ import HelpSection from './components/HelpSection.jsx';
 import Footer from './components/Footer.jsx';
 import IssueDialog from './components/IssueDialog.jsx';
 import ConsultationHistory from './components/ConsultationHistory.jsx';
-import { checkHealth, analyzeResponses, inspectFile, analyzeCsv, inspectExcelFile, analyzeExcel, APIError } from './lib/api.js';
+import { checkHealth, analyzeResponses, inspectPdfFile, analyzePdf, inspectExcelFile, analyzeExcel, APIError } from './lib/api.js';
 import { parseResponses } from './lib/utils.js';
 import { SAMPLES, SAMPLE_LABELS } from './lib/presets.js';
 
 const LIMITS = {
   maxResponses: 2000,
   maxCharacters: 500000,
-  maxCsvBytes: 1048576, // 1MB
+  maxPdfBytes: 10485760, // 10MB
   maxExcelBytes: 10485760 // 10MB
 };
 
@@ -28,7 +28,7 @@ export default function App() {
   const [error, setError] = useState(null);
 
   // Ingestion mode
-  const [mode, setMode] = useState('paste'); // 'paste' | 'csv' | 'excel'
+  const [mode, setMode] = useState('paste'); // 'paste' | 'pdf' | 'excel'
 
   // Text state
   const [text, setText] = useState('');
@@ -36,17 +36,9 @@ export default function App() {
   const [sampleNote, setSampleNote] = useState(null);
   const [source, setSource] = useState('Pasted responses');
 
-  // CSV state
-  const [file, setFile] = useState(null);
-  const [inspection, setInspection] = useState(null);
-  const [mapping, setMapping] = useState({
-    text_column: '',
-    date_column: '',
-    category_column: '',
-    id_column: '',
-    source_column: ''
-  });
-  const [metadataColumns, setMetadataColumns] = useState([]);
+  // PDF state
+  const [pdfFile, setPdfFile] = useState(null);
+  const [pdfInspection, setPdfInspection] = useState(null);
 
   // Excel state
   const [excelFile, setExcelFile] = useState(null);
@@ -191,85 +183,52 @@ export default function App() {
     }
   };
 
-  const handleFileSelected = async (selectedFile) => {
+  const handlePdfFileSelected = async (selectedFile) => {
     if (!selectedFile || busy) return;
     setError(null);
-    setFile(null);
-    setInspection(null);
+    setPdfFile(null);
+    setPdfInspection(null);
 
-    if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
-      setError(new APIError('Choose a CSV file with a .csv filename.'));
+    if (!selectedFile.name.toLowerCase().endsWith('.pdf')) {
+      setError(new APIError('Choose a PDF file with a .pdf filename.'));
       return;
     }
-    if (selectedFile.size > LIMITS.maxCsvBytes) {
-      setError(
-        new APIError(`The CSV exceeds ${LIMITS.maxCsvBytes / 1000000} MB.`)
-      );
+    if (selectedFile.size > LIMITS.maxPdfBytes) {
+      setError(new APIError(`The PDF exceeds ${LIMITS.maxPdfBytes / 1000000} MB.`));
       return;
     }
 
-    setFile(selectedFile);
+    setPdfFile(selectedFile);
     setBusy(true);
 
     try {
-      const insp = await inspectFile(selectedFile);
-      setInspection(insp);
-      setMapping({
-        text_column: insp.suggested_mapping?.text_column || insp.columns[0] || '',
-        date_column: insp.suggested_mapping?.date_column || '',
-        category_column: insp.suggested_mapping?.category_column || '',
-        id_column: '',
-        source_column: ''
-      });
-      setMetadataColumns([]);
+      const insp = await inspectPdfFile(selectedFile);
+      setPdfInspection(insp);
     } catch (err) {
-      setFile(null);
-      setInspection(null);
+      setPdfFile(null);
+      setPdfInspection(null);
       setError(err instanceof APIError ? err : new APIError(err.message));
     } finally {
       setBusy(false);
     }
   };
 
-  const handleRemoveFile = () => {
-    setFile(null);
-    setInspection(null);
-    setMapping({
-      text_column: '',
-      date_column: '',
-      category_column: '',
-      id_column: '',
-      source_column: ''
-    });
-    setMetadataColumns([]);
+  const handleRemovePdfFile = () => {
+    setPdfFile(null);
+    setPdfInspection(null);
     setError(null);
   };
 
-  const handleMappingChange = (field, value) => {
-    setMapping((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleToggleMetadata = (col) => {
-    setMetadataColumns((prev) =>
-      prev.includes(col) ? prev.filter((c) => c !== col) : [...prev, col]
-    );
-  };
-
-  const handleSubmitCsv = async () => {
-    if (busy || !file || !inspection) return;
+  const handleSubmitPdf = async () => {
+    if (busy || !pdfFile || !pdfInspection) return;
     setError(null);
-
-    if (!mapping.text_column) {
-      setError(new APIError('Select the response text column before analyzing.'));
-      return;
-    }
 
     setBusy(true);
-    const csvSource = `CSV · ${file.name}`;
-    setSource(csvSource);
+    const pdfSource = `PDF · ${pdfFile.name}`;
+    setSource(pdfSource);
 
     try {
-      const data = await analyzeCsv(file, mapping, metadataColumns);
+      const data = await analyzePdf(pdfFile);
       if (!data.total_responses) {
         throw new APIError('No valid responses were available for analysis.');
       }
@@ -430,7 +389,7 @@ export default function App() {
   const handleNewAnalysis = () => {
     if (busy) return;
     handleClearText();
-    handleRemoveFile();
+    handleRemovePdfFile();
     handleRemoveExcelFile();
     setAnalysisResult(null);
     setView('workspace');
@@ -500,15 +459,11 @@ export default function App() {
             characterCount={characterCount}
             onClearText={handleClearText}
             onSubmitText={handleSubmitText}
-            file={file}
-            inspection={inspection}
-            mapping={mapping}
-            metadataColumns={metadataColumns}
-            onFileSelected={handleFileSelected}
-            onRemoveFile={handleRemoveFile}
-            onMappingChange={handleMappingChange}
-            onToggleMetadata={handleToggleMetadata}
-            onSubmitCsv={handleSubmitCsv}
+            pdfFile={pdfFile}
+            pdfInspection={pdfInspection}
+            onPdfFileSelected={handlePdfFileSelected}
+            onRemovePdfFile={handleRemovePdfFile}
+            onSubmitPdf={handleSubmitPdf}
             excelFile={excelFile}
             excelInspection={excelInspection}
             excelSheets={excelSheets}

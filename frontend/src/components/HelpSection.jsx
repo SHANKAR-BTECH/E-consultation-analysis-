@@ -13,10 +13,10 @@ export default function HelpSection() {
           </p>
         </div>
         <div>
-          <h3>Preparing a CSV</h3>
+          <h3>Uploading a PDF</h3>
           <p>
-            Use UTF-8 encoding and a header row. Select the response column after inspection.
-            Dates and categories are optional.
+            Use a .pdf file with selectable text. Extracted text lines become the responses
+            analyzed, exactly as they appear in the document.
           </p>
         </div>
         <div>

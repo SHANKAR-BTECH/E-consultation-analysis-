@@ -16,6 +16,9 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
 from config import PROJECT_DIR, MODEL_DIR, DATASET_PATH
+from pdf_fixture import pdf_bytes
+
+POSITIVE = "The process was quick and very helpful."
 
 
 def free_port():
@@ -80,9 +83,9 @@ class RuntimeTests(unittest.TestCase):
                                 self.assertEqual(analysis["total_responses"], 1)
                                 self.assertEqual(analysis["sentiment"]["counts"]["positive"], 1)
                             boundary = "phase2-test-boundary"
-                            body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.csv\"\r\n"
-                                    "Content-Type: text/csv\r\n\r\ntext\nThe process was quick and very helpful.\n"
-                                    f"\r\n--{boundary}--\r\n").encode()
+                            pdf = pdf_bytes([POSITIVE])
+                            body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.pdf\"\r\n"
+                                    "Content-Type: application/pdf\r\n\r\n").encode() + pdf + f"\r\n--{boundary}--\r\n".encode()
                             request = Request(base + "/analyze-file", data=body,
                                               headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
                             with urlopen(request, timeout=5) as response:

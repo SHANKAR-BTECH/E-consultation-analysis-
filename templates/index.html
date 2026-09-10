@@ -42,7 +42,7 @@
       <div class="input-workspace">
         <div class="input-tabs" role="tablist" aria-label="Response source">
           <button id="tab-paste" role="tab" aria-selected="true" aria-controls="pane-paste">Paste responses</button>
-          <button id="tab-csv" role="tab" aria-selected="false" aria-controls="pane-csv" tabindex="-1">Upload CSV</button>
+          <button id="tab-pdf" role="tab" aria-selected="false" aria-controls="pane-pdf" tabindex="-1">Upload PDF</button>
           <button id="tab-excel" role="tab" aria-selected="false" aria-controls="pane-excel" tabindex="-1">Upload Excel</button>
         </div>
         <div id="pane-paste" role="tabpanel" aria-labelledby="tab-paste">
@@ -50,20 +50,16 @@
           <textarea id="paste-input" placeholder="Paste consultation responses here..." aria-describedby="paste-help counters" spellcheck="true"></textarea>
           <div class="input-footer"><div><p id="counters" aria-live="polite"><strong id="response-count">0</strong> responses detected <span class="divider-dot">·</span> <span id="character-count">0</span> characters</p><p id="paste-help" class="small muted">One response per line. Empty lines are ignored.</p></div><div class="actions"><button id="clear-paste" class="button text-button">Clear</button><button id="analyze-paste" class="button primary">Analyze consultation <span aria-hidden="true">→</span></button></div></div>
         </div>
-        <div id="pane-csv" role="tabpanel" aria-labelledby="tab-csv" hidden>
-          <div class="upload-area" id="drop-zone">
-            <span class="upload-symbol" aria-hidden="true">↑</span><h2>Bring your responses together.</h2><p>Choose a CSV, then tell us which columns to use.</p>
-            <label class="button secondary upload-label">Choose CSV file<input type="file" id="csv-file" accept=".csv,text/csv" aria-label="Choose CSV file"></label>
-            <p class="small muted">Or drop a file here. UTF-8 CSV · <span id="csv-limit"></span> maximum</p>
+        <div id="pane-pdf" role="tabpanel" aria-labelledby="tab-pdf" hidden>
+          <div class="upload-area" id="pdf-drop-zone">
+            <span class="upload-symbol" aria-hidden="true">↑</span><h2>Upload a PDF document.</h2><p>Choose a .pdf file; extracted text lines become the responses analyzed.</p>
+            <label class="button secondary upload-label">Choose PDF file<input type="file" id="pdf-file" accept=".pdf,application/pdf" aria-label="Choose PDF file"></label>
+            <p class="small muted">Or drop a file here. .pdf format · <span id="pdf-limit"></span> maximum</p>
           </div>
-          <div id="csv-selected" hidden><div class="file-summary"><div><strong id="file-name"></strong><p id="file-description" class="small muted"></p></div><button id="remove-file" class="button text-button">Remove file</button></div>
-            <div id="csv-mapping" hidden><p class="mapping-heading">Match your columns <span class="small muted">Only the response column is required.</span></p><div class="mapping-grid">
-              <label>Response text <span aria-hidden="true">*</span><select id="map-text" required></select></label>
-              <label>Date<select id="map-date"></select></label><label>Category / department<select id="map-category"></select></label>
-              <label>Response ID<select id="map-id"></select></label><label>Source<select id="map-source"></select></label>
-            </div><p class="small muted">Optional columns can be left unused. Day-first dates such as 03/04/2026 mean 3 April.</p>
-            <details class="metadata-options"><summary>Additional metadata columns</summary><div id="metadata-columns"></div></details>
-            <div class="csv-action"><button id="analyze-csv" class="button primary">Analyze consultation <span aria-hidden="true">→</span></button></div></div>
+          <div id="pdf-selected" hidden><div class="file-summary"><div><strong id="pdf-file-name"></strong><p id="pdf-file-description" class="small muted"></p></div><button id="remove-pdf-file" class="button text-button">Remove file</button></div>
+            <div id="pdf-summary" hidden><p class="mapping-heading">Text extracted <span class="small muted">Layout text is read as-is, exactly as it appears in the document.</span></p>
+            <ol class="pdf-preview" id="pdf-preview"></ol>
+            <div class="csv-action"><button id="analyze-pdf" class="button primary">Analyze consultation <span aria-hidden="true">→</span></button></div></div>
           </div>
         </div>
         <div id="pane-excel" role="tabpanel" aria-labelledby="tab-excel" hidden>
@@ -86,7 +82,7 @@
       </div>
       <div class="samples"><span>Try an illustrative sample</span><button data-sample="transport">Public Transport</button><button data-sample="healthcare">Health Services</button><button data-sample="housing">Housing &amp; Infrastructure</button><button data-sample="single">Single Response</button></div>
       <p id="sample-note" class="small muted" hidden></p>
-      <div id="empty-state" class="workspace-foot"><p>No consultation analyzed yet.</p><p>Paste responses or upload a CSV to begin.<span> English-language prototype · Original evidence retained</span></p></div>
+      <div id="empty-state" class="workspace-foot"><p>No consultation analyzed yet.</p><p>Paste responses, upload a PDF or upload an Excel workbook to begin.<span> English-language prototype · Original evidence retained</span></p></div>
     </section>
     <section id="processing" class="processing" aria-labelledby="processing-title" hidden>
       <div class="activity-line" aria-hidden="true"></div><p class="eyebrow">Analysis in progress</p><h1 id="processing-title" tabindex="-1">Analyzing your consultation.</h1><p>Turning the submitted responses into a clearer picture.</p>
@@ -128,7 +124,7 @@
         <h3>Model evaluation</h3><p>Prototype Test Accuracy: {{ ('%.2f%%' | format(metadata.accuracy * 100)) if metadata.accuracy is defined else 'Unavailable' }}</p><p>{{ metadata.get('dataset_size', 'Unavailable') }} samples in the generated prototype dataset. This controlled evaluation does not establish accuracy on real consultation responses. Confidence is not calibrated real-world accuracy.</p>
       </div></details></div></div>
     </section>
-    <section id="help" class="help-section"><h2>A little help getting started.</h2><div class="help-grid"><div><h3>Pasting responses</h3><p>Choose new lines or blank lines as the separator. Check the detected count before submitting. English-language text is supported.</p></div><div><h3>Preparing a CSV</h3><p>Use UTF-8 encoding and a header row. Select the response column after inspection. Dates and categories are optional.</p></div><div><h3>Working within the limits</h3><p id="limits-help"></p></div></div></section>
+    <section id="help" class="help-section"><h2>A little help getting started.</h2><div class="help-grid"><div><h3>Pasting responses</h3><p>Choose new lines or blank lines as the separator. Check the detected count before submitting. English-language text is supported.</p></div><div><h3>Uploading a PDF</h3><p>Use a .pdf file with selectable text. Extracted text lines become the responses analyzed, exactly as they appear in the document.</p></div><div><h3>Uploading an Excel workbook</h3><p>Use a .xlsx file with a header row. Select the sheet and then the feedback column before analyzing.</p></div><div><h3>Working within the limits</h3><p id="limits-help"></p></div></div></section>
   </main>
   <footer class="site-footer"><div class="container"><span>◈ Consultation Analytics</span><p>{{ project_title }}<br>Academic prototype · Government/public-policy e-consultation</p><a href="#workspace">Back to top ↑</a></div></footer>
   <dialog id="issue-dialog" aria-labelledby="issue-title"><div class="dialog-top"><span class="eyebrow">Issue &amp; evidence</span><button id="close-issue" class="button secondary">Close</button></div><div id="issue-detail"></div></dialog>
